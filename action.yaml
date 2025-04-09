@@ -27,7 +27,12 @@ runs:
       working-directory: ${{ inputs.terraform-dir }}
 
     - name: Terraform Apply
-      run: terraform apply -auto-approve
+      run: |
+        terraform apply -auto-approve || (
+          echo "Apply failed. Cleaning up with terraform destroy..."
+          terraform destroy -auto-approve
+          exit 1
+        )
       shell: bash
       working-directory: ${{ inputs.terraform-dir }}
       env:
