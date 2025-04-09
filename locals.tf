@@ -1,7 +1,7 @@
 locals {
   # Domain and Naming
   full_domain           = "${var.subdomain}.${var.root_domain}"
-  normalized_project    = lower(var.project_name)
+  normalized_project    = var.project_name != null ? lower(var.project_name) : "app"  # Fallback to "app" if null
   environment           = lower(var.environment)
 
   # S3 Bucket Names
@@ -15,7 +15,7 @@ locals {
 
   # Tags
   common_tags           = {
-    Project     = var.project_name
+    Project     = var.project_name != null ? var.project_name : "App"  # Fallback to "App" if null
     Environment = local.environment
     ManagedBy   = "Terraform"
   }
