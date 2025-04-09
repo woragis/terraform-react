@@ -1,6 +1,7 @@
 variable "project_name" {
   type        = string
   description = "Project name used for naming resources and tags (e.g., 'react-app')"
+  default     = null  # Made nullable, will use a fallback in locals
 }
 
 variable "root_domain" {
@@ -27,7 +28,7 @@ variable "aws_region" {
 variable "s3_bucket_name" {
   description = "Name of the S3 bucket to store the React app static files"
   type        = string
-  default     = null  # Will be derived from project_name and environment if not provided
+  default     = null
 }
 
 variable "environment" {
@@ -42,7 +43,7 @@ variable "environment" {
 
 variable "acm_certificate_tags" {
   type        = map(string)
-  description = "Tags for the ACM certificate"
+  description = "Tags for the ACM certificate (unused, kept for compatibility)"
   default     = {
     Environment = "dev"
     Project     = "react-app"
@@ -52,13 +53,13 @@ variable "acm_certificate_tags" {
 variable "cloudfront_distribution_name" {
   type        = string
   description = "Name for the CloudFront distribution"
-  default     = null  # Will be derived from project_name and environment
+  default     = null
 }
 
 variable "logging_bucket_name" {
   type        = string
   description = "Name of the S3 bucket for CloudFront and S3 logs"
-  default     = null  # Will be derived from project_name and environment
+  default     = null
 }
 
 variable "route53_zone_id" {
