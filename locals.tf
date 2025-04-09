@@ -18,7 +18,7 @@ locals {
     Project     = var.project_name != null ? var.project_name : "App"  # Fallback to "App" if null
     Environment = local.environment
     ManagedBy   = "Terraform"
-    Purpose     = "ReactFrontend"
+    Purpose     = "ReactFrontend" # or "Infrastructure", "Monitoring", etc
   }
 
   # CloudFront Settings

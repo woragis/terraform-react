@@ -41,15 +41,6 @@ variable "environment" {
   }
 }
 
-variable "acm_certificate_tags" {
-  type        = map(string)
-  description = "Tags for the ACM certificate (unused, kept for compatibility)"
-  default     = {
-    Environment = "dev"
-    Project     = "react-app"
-  }
-}
-
 variable "cloudfront_distribution_name" {
   type        = string
   description = "Name for the CloudFront distribution"
