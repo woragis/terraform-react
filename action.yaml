@@ -2,18 +2,18 @@ name: 'Terraform React Deploy To AWS'
 description: 'Deploy a React app using Terraform, S3, and CloudFront'
 
 inputs:
-  s3-bucket-name:
-    description: 'The name of the S3 bucket to deploy to'
+  project-name:
+    description: 'The project name used for naming resources and tags (e.g., "react-app")'
     required: true
-  cf-distribution-id:
-    description: 'CloudFront distribution ID for cache invalidation'
+  root-domain:
+    description: 'The main domain for the application (e.g., "example.com")'
     required: true
   terraform-dir:
     description: 'Directory where the Terraform code is located'
     required: true
   aws-region:
     description: 'AWS region for deployment'
-    required: true
+    required: false
     default: 'us-east-1'
 
 runs:
@@ -39,6 +39,17 @@ runs:
         aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ inputs.aws-region }}
 
+    - name: Determine Environment from Branch
+      id: env
+      run: |
+        case ${GITHUB_REF_NAME} in
+          "dev"|"develop") echo "environment=dev" >> $GITHUB_ENV ;;
+          "prod"|"main") echo "environment=prod" >> $GITHUB_ENV ;;
+          "staging") echo "environment=staging" >> $GITHUB_ENV ;;
+          *) echo "environment=dev" >> $GITHUB_ENV ;;  # Default to dev for other branches
+        esac
+      shell: bash
+
     - name: Terraform Init
       run: terraform init
       shell: bash
@@ -48,7 +59,13 @@ runs:
 
     - name: Terraform Plan
       id: plan
-      run: terraform plan -out=tfplan
+      run: |
+        terraform plan \
+          -var "project_name=${{ inputs.project-name }}" \
+          -var "root_domain=${{ inputs.root-domain }}" \
+          -var "aws_region=${{ inputs.aws-region }}" \
+          -var "environment=${{ env.environment }}" \
+          -out=tfplan
       shell: bash
       working-directory: ${{ inputs.terraform-dir }}
 
@@ -78,7 +95,20 @@ runs:
       if: env.apply_success == 'false'
       run: |
         echo "Cleaning up resources with terraform destroy..."
-        terraform destroy -auto-approve
+        terraform destroy -auto-approve \
+          -var "project_name=${{ inputs.project-name }}" \
+          -var "root_domain=${{ inputs.root-domain }}" \
+          -var "aws_region=${{ inputs.aws-region }}" \
+          -var "environment=${{ env.environment }}"
+      shell: bash
+      working-directory: ${{ inputs.terraform-dir }}
+
+    - name: Get Terraform Outputs
+      if: env.apply_success == 'true'
+      id: outputs
+      run: |
+        echo "s3_bucket_name=$(terraform output -raw s3_bucket_name)" >> $GITHUB_ENV
+        echo "cloudfront_distribution_id=$(terraform output -raw cloudfront_distribution_id)" >> $GITHUB_ENV
       shell: bash
       working-directory: ${{ inputs.terraform-dir }}
 
@@ -93,7 +123,7 @@ runs:
     - name: Deploy to S3
       if: env.apply_success == 'true'
       run: |
-        aws s3 sync build/ s3://${{ inputs.s3-bucket-name }} --delete
+        aws s3 sync build/ s3://${{ env.s3_bucket_name }} --delete
       shell: bash
       env:
         AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
@@ -103,7 +133,7 @@ runs:
     - name: Invalidate CloudFront Cache
       if: env.apply_success == 'true'
       run: |
-        aws cloudfront create-invalidation --distribution-id ${{ inputs.cf-distribution-id }} --paths "/*" || echo "Cache invalidation failed, but continuing..."
+        aws cloudfront create-invalidation --distribution-id ${{ env.cloudfront_distribution_id }} --paths "/*" || echo "Cache invalidation failed, but continuing..."
       shell: bash
       env:
         AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
