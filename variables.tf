@@ -33,9 +33,10 @@ variable "s3_bucket_name" {
 variable "environment" {
   type        = string
   description = "Deployment environment (e.g., 'dev', 'prod', 'staging')"
+  default     = "dev"
   validation {
-      condition     = contains(["dev", "prod", "staging"], lower(var.environment))
-      error_message = "The environment must be one of: 'dev', 'prod', or 'staging'."
+    condition     = contains(["dev", "prod", "staging"], lower(var.environment))
+    error_message = "The environment must be one of: 'dev', 'prod', or 'staging'."
   }
 }
 
