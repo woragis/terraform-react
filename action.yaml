@@ -1,5 +1,5 @@
 name: 'Terraform React Deploy To AWS'
-description: 'Deploy a React app using Terraform, S3, and Cloudfront'
+description: 'Deploy a React app using Terraform, S3, and CloudFront'
 
 inputs:
   s3-bucket-name:
@@ -7,6 +7,9 @@ inputs:
     required: true
   cf-distribution-id:
     description: 'CloudFront distribution ID for cache invalidation'
+    required: true
+  terraform-dir:
+    description: 'Directory where the Terraform code is located'
     required: true
 
 runs:
@@ -21,16 +24,18 @@ runs:
     - name: Terraform Init
       run: terraform init
       shell: bash
+      working-directory: ${{ inputs.terraform-dir }}
 
     - name: Terraform Apply
       run: terraform apply -auto-approve
       shell: bash
+      working-directory: ${{ inputs.terraform-dir }}
       env:
         AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
         AWS_REGION: ${{ env.AWS_REGION }}
 
-    - name: Install dependencies and build React app
+    - name: Build React App
       run: |
         npm ci
         npm run build
