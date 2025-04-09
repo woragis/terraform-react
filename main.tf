@@ -12,6 +12,10 @@ data "aws_route53_zone" "primary" {
 resource "aws_s3_bucket" "static_site" {
   bucket = local.s3_bucket_name
 
+  lifecycle {
+    prevent_destroy = true
+  }
+
   tags = {
     Name = local.s3_bucket_name
   }
@@ -24,6 +28,36 @@ resource "aws_s3_bucket_public_access_block" "block" {
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true
+}
+
+# Bucket Lifecycle policies
+resource "aws_s3_bucket_lifecycle_configuration" "lifecycle" {
+  bucket = aws_s3_bucket.static_site.id
+
+  rule {
+    id     = "auto-archive"
+    status = "Enabled"
+
+    transition {
+      days          = 90
+      storage_class = "GLACIER"
+    }
+
+    expiration {
+      days = 365
+    }
+  }
+}
+
+# S3 Bucket Encryption
+resource "aws_s3_bucket_server_side_encryption_configuration" "encryption" {
+  bucket = aws_s3_bucket.static_site.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
 }
 
 resource "aws_s3_bucket_website_configuration" "site" {
@@ -88,6 +122,10 @@ resource "aws_s3_bucket_policy" "oai_policy" {
   })
 }
 
+resource "time_sleep" "wait_for_certificate" {
+  create_duration = "300s"  # Wait 5 minutes for certificate validation
+}
+
 # CloudFront distribution for S3
 resource "aws_cloudfront_distribution" "cdn" {
   origin {
@@ -95,15 +133,20 @@ resource "aws_cloudfront_distribution" "cdn" {
     origin_id   = "S3-${local.s3_bucket_name}"
 
     s3_origin_config {
-    origin_access_identity = aws_cloudfront_origin_access_identity.oai.cloudfront_access_identity_path
+      origin_access_identity = aws_cloudfront_origin_access_identity.oai.cloudfront_access_identity_path
     }
+  }
 
-    custom_origin_config {
-      origin_protocol_policy = "http-only"
-      http_port              = 80
-      https_port             = 443
-      origin_ssl_protocols   = ["TLSv1.2"]
-    }
+  custom_error_response {
+    error_code         = 404
+    response_code      = 200
+    response_page_path = "/index.html"
+  }
+
+  custom_error_response {
+    error_code         = 403
+    response_code      = 200
+    response_page_path = "/index.html"
   }
 
   enabled             = true
@@ -114,6 +157,31 @@ resource "aws_cloudfront_distribution" "cdn" {
     cached_methods         = ["GET", "HEAD"]
     target_origin_id       = "S3-${local.s3_bucket_name}"
     viewer_protocol_policy = "redirect-to-https"
+    min_ttl                = 0
+    default_ttl            = 86400
+    max_ttl                = 31536000
+
+    compress = true
+
+    forwarded_values {
+      query_string = false
+      cookies {
+        forward = "none"
+      }
+    }
+  }
+
+  ordered_cache_behavior {
+    path_pattern           = "*.(jpg|jpeg|png|gif|ico|css|js)"
+    allowed_methods        = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = "S3-${local.s3_bucket_name}"
+    viewer_protocol_policy = "redirect-to-https"
+    min_ttl                = 0
+    default_ttl            = 31536000
+    max_ttl                = 31536000
+
+    compress = true
 
     forwarded_values {
       query_string = false
@@ -135,20 +203,15 @@ resource "aws_cloudfront_distribution" "cdn" {
     }
   }
 
+  logging_config {
+    bucket          = "your-logging-bucket.s3.amazonaws.com"
+    include_cookies = false
+    prefix          = "cloudfront/"
+  }
+
   tags = {
     Name = local.cloudfront_name
   }
-}
 
-# DNS alias record for CloudFront
-resource "aws_route53_record" "cdn_alias" {
-  zone_id = data.aws_route53_zone.primary.zone_id
-  name    = local.full_domain
-  type    = "A"
-
-  alias {
-    name                   = aws_cloudfront_distribution.cdn.domain_name
-    zone_id                = aws_cloudfront_distribution.cdn.hosted_zone_id
-    evaluate_target_health = false
-  }
+  depends_on = [aws_acm_certificate_validation.cert, time_sleep.wait_for_certificate]
 }
