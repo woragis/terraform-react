@@ -11,6 +11,10 @@ inputs:
   terraform-dir:
     description: 'Directory where the Terraform code is located'
     required: true
+  aws-region:
+    description: 'AWS region for deployment'
+    required: true
+    default: 'us-east-1'
 
 runs:
   using: 'composite'
@@ -18,48 +22,96 @@ runs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '16'
+
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: '1.5.0'
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ inputs.aws-region }}
 
     - name: Terraform Init
       run: terraform init
       shell: bash
       working-directory: ${{ inputs.terraform-dir }}
+      env:
+        TF_LOG: INFO
 
-    - name: Terraform Apply
-      run: |
-        terraform apply -auto-approve || (
-          echo "Apply failed. Cleaning up with terraform destroy..."
-          terraform destroy -auto-approve
-          exit 1
-        )
+    - name: Terraform Plan
+      id: plan
+      run: terraform plan -out=tfplan
       shell: bash
       working-directory: ${{ inputs.terraform-dir }}
-      env:
-        AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
-        AWS_REGION: ${{ env.AWS_REGION }}
+
+    - name: Terraform Apply with Retry
+      id: apply
+      continue-on-error: true
+      run: |
+        for attempt in {1..5}; do
+          if terraform apply -auto-approve tfplan; then
+            echo "Terraform apply succeeded on attempt $attempt"
+            echo "apply_success=true" >> $GITHUB_ENV
+            break
+          else
+            echo "Attempt $attempt failed. Retrying in 120 seconds..."
+            sleep 120
+            if [ $attempt -eq 5 ]; then
+              echo "Terraform apply failed after 5 attempts"
+              echo "apply_success=false" >> $GITHUB_ENV
+              exit 1
+            fi
+          fi
+        done
+      shell: bash
+      working-directory: ${{ inputs.terraform-dir }}
+
+    - name: Terraform Destroy on Failure
+      if: env.apply_success == 'false'
+      run: |
+        echo "Cleaning up resources with terraform destroy..."
+        terraform destroy -auto-approve
+      shell: bash
+      working-directory: ${{ inputs.terraform-dir }}
 
     - name: Build React App
+      if: env.apply_success == 'true'
       run: |
         npm ci
         npm run build
       shell: bash
+      working-directory: .
 
     - name: Deploy to S3
+      if: env.apply_success == 'true'
       run: |
         aws s3 sync build/ s3://${{ inputs.s3-bucket-name }} --delete
       shell: bash
       env:
         AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
-        AWS_REGION: ${{ env.AWS_REGION }}
+        AWS_REGION: ${{ inputs.aws-region }}
 
     - name: Invalidate CloudFront Cache
+      if: env.apply_success == 'true'
       run: |
-        aws cloudfront create-invalidation --distribution-id ${{ inputs.cf-distribution-id }} --paths "/*"
+        aws cloudfront create-invalidation --distribution-id ${{ inputs.cf-distribution-id }} --paths "/*" || echo "Cache invalidation failed, but continuing..."
       shell: bash
       env:
         AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
-        AWS_REGION: ${{ env.AWS_REGION }}
+        AWS_REGION: ${{ inputs.aws-region }}
+
+    - name: Notify on Timeout or Failure
+      if: failure() || cancelled()
+      run: |
+        echo "Deployment failed or timed out. Check AWS status and logs."
+      shell: bash
