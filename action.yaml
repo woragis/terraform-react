@@ -1,0 +1,55 @@
+name: 'Terraform React Deploy To AWS'
+description: 'Deploy a React app using Terraform, S3, and Cloudfront'
+
+inputs:
+  s3-bucket-name:
+    description: 'The name of the S3 bucket to deploy to'
+    required: true
+  cf-distribution-id:
+    description: 'CloudFront distribution ID for cache invalidation'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+
+    - name: Terraform Init
+      run: terraform init
+      shell: bash
+
+    - name: Terraform Apply
+      run: terraform apply -auto-approve
+      shell: bash
+      env:
+        AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
+        AWS_REGION: ${{ env.AWS_REGION }}
+
+    - name: Install dependencies and build React app
+      run: |
+        npm ci
+        npm run build
+      shell: bash
+
+    - name: Deploy to S3
+      run: |
+        aws s3 sync build/ s3://${{ inputs.s3-bucket-name }} --delete
+      shell: bash
+      env:
+        AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
+        AWS_REGION: ${{ env.AWS_REGION }}
+
+    - name: Invalidate CloudFront Cache
+      run: |
+        aws cloudfront create-invalidation --distribution-id ${{ inputs.cf-distribution-id }} --paths "/*"
+      shell: bash
+      env:
+        AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
+        AWS_REGION: ${{ env.AWS_REGION }}
