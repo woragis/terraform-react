@@ -32,6 +32,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "lifecycle" {
     id     = "auto-archive"
     status = "Enabled"
 
+    filter {
+      prefix = "" # applies to all objects
+    }
+
     transition {
       days          = 90
       storage_class = "GLACIER"
