@@ -72,8 +72,8 @@ runs:
         TF_LOG: INFO
         TF_VAR_project_name: ${{ inputs.project-name }}
       run: |
-        terraform import "module.s3.aws_s3_bucket.static_site" "my-app-prod-s3"
-        terraform import "module.s3.aws_s3_bucket.logging_bucket" "my-app-prod-logs"
+        terraform import "module.s3.aws_s3_bucket.static_site" "my-app-prod-s3" || true
+        terraform import "module.s3.aws_s3_bucket.logging_bucket" "my-app-prod-logs" || true
       working-directory: ${{ inputs.terraform-dir }}
 
     - name: Debug State
