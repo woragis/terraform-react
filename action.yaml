@@ -66,6 +66,13 @@ runs:
       env:
         TF_LOG: INFO
 
+    - name: Terraform Import Existing Buckets
+      shell: bash
+      run: |
+        terraform import aws_s3_bucket.static_site ${{ inputs.s3-bucket-name}} || true
+        terraform import aws_s3_bucket.logging_bucket ${{ inputs.logging-bucket-name }} || true
+      working-directory: ${{ inputs.terraform-dir }}
+
     - name: Terraform Plan
       id: plan
       run: |
