@@ -7,7 +7,7 @@ resource "aws_s3_bucket" "static_site" {
   bucket = local.s3_bucket_name
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false
   }
 
   tags = merge(local.common_tags, {
