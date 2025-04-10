@@ -3,18 +3,46 @@ description: 'Deploy a React app using Terraform, S3, and CloudFront'
 
 inputs:
   project-name:
-    description: 'The project name used for naming resources and tags (e.g., "react-app")'
+    description: 'The project name used for naming resources and tags'
     required: true
+
   root-domain:
     description: 'The main domain for the application (e.g., "example.com")'
     required: true
+
   terraform-dir:
     description: 'Directory where the Terraform code is located'
     required: true
+
   aws-region:
     description: 'AWS region for deployment'
     required: false
     default: 'us-east-1'
+
+  subdomain:
+    description: 'Subdomain (e.g., app or www)'
+    required: false
+    default: 'app'
+
+  environment:
+    description: 'Deployment environment (e.g., dev, prod, staging)'
+    required: false
+    default: 'dev'
+
+  s3-bucket-name:
+    description: 'Custom S3 bucket name'
+    required: false
+    default: ''
+
+  logging-bucket-name:
+    description: 'Custom logging bucket name'
+    required: false
+    default: ''
+
+  cloudfront-distribution-name:
+    description: 'Custom CloudFront distribution name'
+    required: false
+    default: ''
 
 runs:
   using: 'composite'
