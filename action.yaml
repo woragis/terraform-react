@@ -123,8 +123,8 @@ runs:
       if: env.apply_success == 'true'
       id: outputs
       run: |
-        echo "s3_bucket_name=$(terraform output -raw s3_bucket_name)" >> $GITHUB_ENV
-        echo "s3_bucket_name=$(terraform output -raw s3_bucket_name)" >> $GITHUB_OUTPUT
+        echo "s3-bucket-name=$(terraform output -raw s3_bucket_name)" >> $GITHUB_ENV
+        echo "s3-bucket-name=$(terraform output -raw s3_bucket_name)" >> $GITHUB_OUTPUT
       shell: bash
       working-directory: ${{ inputs.terraform-dir }}
 
