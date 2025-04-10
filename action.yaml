@@ -65,22 +65,32 @@ runs:
       working-directory: ${{ inputs.terraform-dir }}
       env:
         TF_LOG: INFO
-
     - name: Import Existing Buckets
       shell: bash
       env:
         TF_LOG: INFO
         TF_VAR_project_name: ${{ inputs.project-name }}
-        environment: ${{ env.environment }} # Set environment variable
+        environment: ${{ env.environment }}
       run: |
-        terraform import "module.s3.aws_s3_bucket.static_site" "${TF_VAR_project_name}-${environment}-s3" || true
-        terraform import "module.s3.aws_s3_bucket.logging_bucket" "${TF_VAR_project_name}-${environment}-logs" || true
+        if terraform import "module.s3.aws_s3_bucket.static_site" "${TF_VAR_project_name}-${environment}-s3" 2>/dev/null; then
+          echo "Imported static site bucket successfully"
+        else
+          echo "Static site bucket does not exist or import failed (this is expected if it doesn't exist)"
+        fi
+
+        if terraform import "module.s3.aws_s3_bucket.logging_bucket" "${TF_VAR_project_name}-${environment}-logs" 2>/dev/null; then
+          echo "Imported logging bucket successfully"
+        else
+          echo "Logging bucket does not exist or import failed (this is expected if it doesn't exist)"
+        fi
       working-directory: ${{ inputs.terraform-dir }}
 
     - name: Debug State
       shell: bash
       working-directory: ${{ inputs.terraform-dir }}
-      run: terraform state list || true
+      run: |
+        echo "Current Terraform state:"
+        terraform state list || echo "No resources in state"
 
     - name: Terraform Plan
       id: plan
