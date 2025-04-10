@@ -32,17 +32,17 @@ inputs:
   s3-bucket-name:
     description: 'Custom S3 bucket name'
     required: false
-    default: ''
+    default: 'null'
 
   logging-bucket-name:
     description: 'Custom logging bucket name'
     required: false
-    default: ''
+    default: 'null'
 
   cloudfront-distribution-name:
     description: 'Custom CloudFront distribution name'
     required: false
-    default: ''
+    default: 'null'
 
 runs:
   using: 'composite'
