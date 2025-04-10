@@ -123,8 +123,15 @@ runs:
       if: env.apply_success == 'true'
       id: outputs
       run: |
-        echo "s3-bucket-name=$(terraform output -raw s3_bucket_name)" >> $GITHUB_ENV
-        echo "s3-bucket-name=$(terraform output -raw s3_bucket_name)" >> $GITHUB_OUTPUT
+        echo "s3_bucket_name=$(terraform output -raw s3_bucket_name)" >> $GITHUB_ENV
+        echo "s3_bucket_name=$(terraform output -raw s3_bucket_name)" >> $GITHUB_OUTPUT
+
+        echo "logging_bucket_name=$(terraform output -raw logging_bucket_name)" >> $GITHUB_ENV
+        echo "logging_bucket_name=$(terraform output -raw logging_bucket_name)" >> $GITHUB_OUTPUT
+
+        echo "website_endpoint=$(terraform output -raw website_endpoint)" >> $GITHUB_ENV
+        echo "website_endpoint=$(terraform output -raw website_endpoint)" >> $GITHUB_OUTPUT
+
       shell: bash
       working-directory: ${{ inputs.terraform-dir }}
 
@@ -135,6 +142,12 @@ runs:
       shell: bash
 
 outputs:
-  s3-bucket-name:
+  s3_bucket_name:
     description: 'The name of the S3 bucket created or used'
     value: ${{ steps.outputs.outputs.s3_bucket_name }}
+  logging_bucket_name:
+    description: 'The name of the S3 bucket created for logging'
+    value: ${{ steps.outputs.outputs.logging_bucket_name }}
+  website_endpoint:
+    description: 'S3 static website endpoint'
+    value: ${{ steps.outputs.outputs.website_endpoint }}
