@@ -124,10 +124,7 @@ runs:
       id: outputs
       run: |
         echo "s3_bucket_name=$(terraform output -raw s3_bucket_name)" >> $GITHUB_ENV
-        echo "cdn_domain_name=$(terraform output -raw cdn_domain_name)" >> $GITHUB_ENV
-
         echo "s3_bucket_name=$(terraform output -raw s3_bucket_name)" >> $GITHUB_OUTPUT
-        echo "cdn_domain_name=$(terraform output -raw cdn_domain_name)" >> $GITHUB_OUTPUT
       shell: bash
       working-directory: ${{ inputs.terraform-dir }}
 
@@ -159,7 +156,3 @@ outputs:
   s3-bucket-name:
     description: 'The name of the S3 bucket created or used'
     value: ${{ steps.outputs.outputs.s3_bucket_name }}
-
-  cdn-domain-name:
-    description: 'The CDN domain name (CloudFront)'
-    value: ${{ steps.outputs.outputs.cdn_domain_name }}
