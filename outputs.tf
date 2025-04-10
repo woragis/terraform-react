@@ -1,4 +1,4 @@
-output "static_site_bucket_name" {
+output "s3_bucket_name" {
   value       = aws_s3_bucket.static_site.bucket
   description = "Name of the S3 bucket hosting the static site"
 }

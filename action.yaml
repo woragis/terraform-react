@@ -128,24 +128,6 @@ runs:
       shell: bash
       working-directory: ${{ inputs.terraform-dir }}
 
-    - name: Build React App
-      if: env.apply_success == 'true'
-      run: |
-        npm ci
-        npm run build
-      shell: bash
-      working-directory: .
-
-    - name: Deploy to S3
-      if: env.apply_success == 'true'
-      run: |
-        aws s3 sync build/ s3://${{ env.s3_bucket_name }} --delete
-      shell: bash
-      env:
-        AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
-        AWS_REGION: ${{ inputs.aws-region }}
-
     - name: Notify on Timeout or Failure
       if: failure() || cancelled()
       run: |
