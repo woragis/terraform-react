@@ -1,13 +1,9 @@
 name: 'Terraform React Deploy To AWS'
-description: 'Deploy a React app using Terraform, S3, and CloudFront'
+description: 'Deploy a React app using Terraform and S3'
 
 inputs:
   project-name:
     description: 'The project name used for naming resources and tags'
-    required: true
-
-  root-domain:
-    description: 'The main domain for the application (e.g., "example.com")'
     required: true
 
   terraform-dir:
@@ -18,11 +14,6 @@ inputs:
     description: 'AWS region for deployment'
     required: false
     default: 'us-east-1'
-
-  subdomain:
-    description: 'Subdomain (e.g., app or www)'
-    required: false
-    default: 'app'
 
   environment:
     description: 'Deployment environment (e.g., dev, prod, staging)'
@@ -36,11 +27,6 @@ inputs:
 
   logging-bucket-name:
     description: 'Custom logging bucket name'
-    required: false
-    default: 'null'
-
-  cloudfront-distribution-name:
-    description: 'Custom CloudFront distribution name'
     required: false
     default: 'null'
 
@@ -90,9 +76,10 @@ runs:
       run: |
         terraform plan \
           -var "project_name=${{ inputs.project-name }}" \
-          -var "root_domain=${{ inputs.root-domain }}" \
           -var "aws_region=${{ inputs.aws-region }}" \
           -var "environment=${{ env.environment }}" \
+          -var "s3_bucket_name=${{ inputs.s3-bucket-name }}" \
+          -var "logging_bucket_name=${{ inputs.logging-bucket-name }}" \
           -out=tfplan
       shell: bash
       working-directory: ${{ inputs.terraform-dir }}
@@ -125,9 +112,10 @@ runs:
         echo "Cleaning up resources with terraform destroy..."
         terraform destroy -auto-approve \
           -var "project_name=${{ inputs.project-name }}" \
-          -var "root_domain=${{ inputs.root-domain }}" \
           -var "aws_region=${{ inputs.aws-region }}" \
-          -var "environment=${{ env.environment }}"
+          -var "environment=${{ env.environment }}" \
+          -var "s3_bucket_name=${{ inputs.s3-bucket-name }}" \
+          -var "logging_bucket_name=${{ inputs.logging-bucket-name }}"
       shell: bash
       working-directory: ${{ inputs.terraform-dir }}
 
@@ -136,7 +124,7 @@ runs:
       id: outputs
       run: |
         echo "s3_bucket_name=$(terraform output -raw s3_bucket_name)" >> $GITHUB_ENV
-        echo "cloudfront_distribution_id=$(terraform output -raw cloudfront_distribution_id)" >> $GITHUB_ENV
+        echo "s3_bucket_name=$(terraform output -raw s3_bucket_name)" >> $GITHUB_OUTPUT
       shell: bash
       working-directory: ${{ inputs.terraform-dir }}
 
@@ -158,18 +146,13 @@ runs:
         AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
         AWS_REGION: ${{ inputs.aws-region }}
 
-    - name: Invalidate CloudFront Cache
-      if: env.apply_success == 'true'
-      run: |
-        aws cloudfront create-invalidation --distribution-id ${{ env.cloudfront_distribution_id }} --paths "/*" || echo "Cache invalidation failed, but continuing..."
-      shell: bash
-      env:
-        AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
-        AWS_REGION: ${{ inputs.aws-region }}
-
     - name: Notify on Timeout or Failure
       if: failure() || cancelled()
       run: |
         echo "Deployment failed or timed out. Check AWS status and logs."
       shell: bash
+
+outputs:
+  s3-bucket-name:
+    description: 'The name of the S3 bucket created or used'
+    value: ${{ steps.outputs.outputs.s3_bucket_name }}
