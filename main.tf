@@ -91,152 +91,152 @@ resource "aws_s3_bucket_public_access_block" "logging_block" {
 }
 
 # ACM certificate for subdomain
-resource "aws_acm_certificate" "cert" {
-  domain_name       = local.full_domain
-  validation_method = "DNS"
+# resource "aws_acm_certificate" "cert" {
+#   domain_name       = local.full_domain
+#   validation_method = "DNS"
 
-  tags = merge(local.common_tags, {
-    Name = local.certificate_name
-  })
-}
+#   tags = merge(local.common_tags, {
+#     Name = local.certificate_name
+#   })
+# }
 
 # DNS record for certificate validation
-resource "aws_route53_record" "cert_validation" {
-  name    = local.cert_validation.resource_record_name
-  type    = local.cert_validation.resource_record_type
-  zone_id = data.aws_route53_zone.primary.zone_id
-  records = [local.cert_validation.resource_record_value]
-  ttl     = 60
+# resource "aws_route53_record" "cert_validation" {
+#   name    = local.cert_validation.resource_record_name
+#   type    = local.cert_validation.resource_record_type
+#   zone_id = data.aws_route53_zone.primary.zone_id
+#   records = [local.cert_validation.resource_record_value]
+#   ttl     = 60
 
-  allow_overwrite = true
-}
+#   allow_overwrite = true
+# }
 
 # Validates the certificate
-resource "aws_acm_certificate_validation" "cert" {
-  certificate_arn         = aws_acm_certificate.cert.arn
-  validation_record_fqdns = [aws_route53_record.cert_validation.fqdn]
-}
+# resource "aws_acm_certificate_validation" "cert" {
+#   certificate_arn         = aws_acm_certificate.cert.arn
+#   validation_record_fqdns = [aws_route53_record.cert_validation.fqdn]
+# }
 
 # Wait for Certificate Validation
-resource "time_sleep" "wait_for_certificate" {
-  create_duration = "300s"  # Wait 5 minutes for certificate validation
-}
+# resource "time_sleep" "wait_for_certificate" {
+#   create_duration = "300s"  # Wait 5 minutes for certificate validation
+# }
 
 # Create the OAI
-resource "aws_cloudfront_origin_access_identity" "oai" {
-  comment = "OAI for ${local.s3_bucket_name}"
-}
+# resource "aws_cloudfront_origin_access_identity" "oai" {
+#   comment = "OAI for ${local.s3_bucket_name}"
+# }
 
 # Grant OAI permission in bucket policy
-resource "aws_s3_bucket_policy" "oai_policy" {
-  bucket = aws_s3_bucket.static_site.id
+# resource "aws_s3_bucket_policy" "oai_policy" {
+#   bucket = aws_s3_bucket.static_site.id
 
-  policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [{
-      Effect    = "Allow",
-      Principal = {
-        AWS = aws_cloudfront_origin_access_identity.oai.iam_arn
-      }
-      Action    = "s3:GetObject"
-      Resource  = "${aws_s3_bucket.static_site.arn}/*"
-    }]
-  })
-}
+#   policy = jsonencode({
+#     Version = "2012-10-17",
+#     Statement = [{
+#       Effect    = "Allow",
+#       Principal = {
+#         AWS = aws_cloudfront_origin_access_identity.oai.iam_arn
+#       }
+#       Action    = "s3:GetObject"
+#       Resource  = "${aws_s3_bucket.static_site.arn}/*"
+#     }]
+#   })
+# }
 
 # CloudFront distribution for S3
-resource "aws_cloudfront_distribution" "cdn" {
-  origin {
-    domain_name = aws_s3_bucket.static_site.bucket_regional_domain_name
-    origin_id   = local.cloudfront_origin_id
+# resource "aws_cloudfront_distribution" "cdn" {
+#   origin {
+#     domain_name = aws_s3_bucket.static_site.bucket_regional_domain_name
+#     origin_id   = local.cloudfront_origin_id
 
-    s3_origin_config {
-      origin_access_identity = aws_cloudfront_origin_access_identity.oai.cloudfront_access_identity_path
-    }
-  }
+#     s3_origin_config {
+#       origin_access_identity = aws_cloudfront_origin_access_identity.oai.cloudfront_access_identity_path
+#     }
+#   }
 
-  custom_error_response {
-    error_code         = 404
-    response_code      = 200
-    response_page_path = "/index.html"
-  }
+#   custom_error_response {
+#     error_code         = 404
+#     response_code      = 200
+#     response_page_path = "/index.html"
+#   }
 
-  custom_error_response {
-    error_code         = 403
-    response_code      = 200
-    response_page_path = "/index.html"
-  }
+#   custom_error_response {
+#     error_code         = 403
+#     response_code      = 200
+#     response_page_path = "/index.html"
+#   }
 
-  enabled             = true
-  default_root_object = "index.html"
+#   enabled             = true
+#   default_root_object = "index.html"
 
-  default_cache_behavior {
-    allowed_methods        = ["GET", "HEAD"]
-    cached_methods         = ["GET", "HEAD"]
-    target_origin_id       = local.cloudfront_origin_id
-    viewer_protocol_policy = "redirect-to-https"
-    min_ttl                = 0
-    default_ttl            = 86400
-    max_ttl                = 31536000
+#   default_cache_behavior {
+#     allowed_methods        = ["GET", "HEAD"]
+#     cached_methods         = ["GET", "HEAD"]
+#     target_origin_id       = local.cloudfront_origin_id
+#     viewer_protocol_policy = "redirect-to-https"
+#     min_ttl                = 0
+#     default_ttl            = 86400
+#     max_ttl                = 31536000
 
-    compress = true
+#     compress = true
 
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
-      }
-    }
-  }
+#     forwarded_values {
+#       query_string = false
+#       cookies {
+#         forward = "none"
+#       }
+#     }
+#   }
 
-  ordered_cache_behavior {
-    path_pattern           = "*.(jpg|jpeg|png|gif|ico|css|js)"
-    allowed_methods        = ["GET", "HEAD"]
-    cached_methods         = ["GET", "HEAD"]
-    target_origin_id       = local.cloudfront_origin_id
-    viewer_protocol_policy = "redirect-to-https"
-    min_ttl                = 0
-    default_ttl            = 31536000
-    max_ttl                = 31536000
+#   ordered_cache_behavior {
+#     path_pattern           = "*.(jpg|jpeg|png|gif|ico|css|js)"
+#     allowed_methods        = ["GET", "HEAD"]
+#     cached_methods         = ["GET", "HEAD"]
+#     target_origin_id       = local.cloudfront_origin_id
+#     viewer_protocol_policy = "redirect-to-https"
+#     min_ttl                = 0
+#     default_ttl            = 31536000
+#     max_ttl                = 31536000
 
-    compress = true
+#     compress = true
 
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
-      }
-    }
-  }
+#     forwarded_values {
+#       query_string = false
+#       cookies {
+#         forward = "none"
+#       }
+#     }
+#   }
 
-  viewer_certificate {
-    acm_certificate_arn      = aws_acm_certificate_validation.cert.certificate_arn
-    ssl_support_method       = "sni-only"
-    minimum_protocol_version = local.ssl_minimum_protocol_version
-  }
+#   viewer_certificate {
+#     acm_certificate_arn      = aws_acm_certificate_validation.cert.certificate_arn
+#     ssl_support_method       = "sni-only"
+#     minimum_protocol_version = local.ssl_minimum_protocol_version
+#   }
 
-  restrictions {
-    geo_restriction {
-      restriction_type = "none"
-    }
-  }
+#   restrictions {
+#     geo_restriction {
+#       restriction_type = "none"
+#     }
+#   }
 
-  logging_config {
-    bucket          = aws_s3_bucket.logging_bucket.bucket_regional_domain_name
-    include_cookies = false
-    prefix          = "cloudfront/"
-  }
+#   logging_config {
+#     bucket          = aws_s3_bucket.logging_bucket.bucket_regional_domain_name
+#     include_cookies = false
+#     prefix          = "cloudfront/"
+#   }
 
-  tags = merge(local.common_tags, {
-    Name = local.cloudfront_name
-  })
+#   tags = merge(local.common_tags, {
+#     Name = local.cloudfront_name
+#   })
 
-  # For some reason, the lint is giving an error
-  # timeouts {
-  #   create = "90m"
-  #   update = "60m"
-  #   delete = "30m"
-  # }
+#   # For some reason, the lint is giving an error
+#   # timeouts {
+#   #   create = "90m"
+#   #   update = "60m"
+#   #   delete = "30m"
+#   # }
 
-  depends_on = [aws_acm_certificate_validation.cert, time_sleep.wait_for_certificate]
-}
+#   depends_on = [aws_acm_certificate_validation.cert, time_sleep.wait_for_certificate]
+# }
