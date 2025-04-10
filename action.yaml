@@ -69,8 +69,8 @@ runs:
     - name: Terraform Import Existing Buckets
       shell: bash
       run: |
-        terraform import aws_s3_bucket.static_site ${{ inputs.s3-bucket-name}} || true
-        terraform import aws_s3_bucket.logging_bucket ${{ inputs.logging-bucket-name }} || true
+        terraform import aws_s3_bucket.static_site ${{ inputs.project-name }}-${{ env.environment }}-s3 || true
+        terraform import aws_s3_bucket.logging_bucket ${{ inputs.project-name }}-${{ env.environment }}-logs || true
       working-directory: ${{ inputs.terraform-dir }}
 
     - name: Terraform Plan
