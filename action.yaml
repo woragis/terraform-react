@@ -80,7 +80,7 @@ runs:
     - name: Debug State
       shell: bash
       working-directory: ${{ inputs.terraform-dir }}
-      run: terraform state list
+      run: terraform state list || true
 
     - name: Terraform Plan
       id: plan
@@ -155,10 +155,10 @@ runs:
 outputs:
   s3_bucket_name:
     description: 'The name of the S3 bucket created or used'
-    value: ${{ steps.outputs.outputs.s3_bucket_name }}
+    value: ${{ steps.outputs.s3_bucket_name }}
   logging_bucket_name:
     description: 'The name of the S3 bucket created for logging'
-    value: ${{ steps.outputs.outputs.logging_bucket_name }}
+    value: ${{ steps.outputs.logging_bucket_name }}
   website_endpoint:
     description: 'S3 static website endpoint'
-    value: ${{ steps.outputs.outputs.website_endpoint }}
+    value: ${{ steps.outputs.website_endpoint }}
