@@ -108,7 +108,7 @@ runs:
 
     - name: Get Terraform Outputs
       if: env.apply_success == 'true'
-      id: outputs
+      id: get_outputs
       run: |
         S3_BUCKET_NAME=$(terraform output -raw s3_bucket_name 2>/dev/null) || S3_BUCKET_NAME=""
         if [ -n "$S3_BUCKET_NAME" ]; then
@@ -137,7 +137,7 @@ runs:
 outputs:
   s3_bucket_name:
     description: 'The name of the S3 bucket created or used'
-    value: ${{ steps.outputs.outputs.s3_bucket_name }}
+    value: ${{ steps.get_outputs.outputs.s3_bucket_name }}
   website_endpoint:
     description: 'S3 static website endpoint'
-    value: ${{ steps.outputs.outputs.website_endpoint }}
+    value: ${{ steps.get_outputs.outputs.website_endpoint }}
