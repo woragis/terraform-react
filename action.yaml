@@ -97,7 +97,7 @@ runs:
       working-directory: ${{ inputs.terraform-dir }}
 
     - name: Terraform Destroy on Failure
-      if: steps.apply.outputs.apply_success == 'true'
+      if: steps.apply.outputs.apply_success == 'false'
       run: |
         echo "Cleaning up resources with terraform destroy..."
         terraform destroy -auto-approve \
