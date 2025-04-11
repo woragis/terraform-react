@@ -79,15 +79,9 @@ runs:
       if: steps.s3_check.outputs.exists == 'true'
       shell: bash
       run: |
+        terraform init
         terraform import aws_s3_bucket.main "$s3_bucket_name"
       working-directory: ./terraform/s3
-
-    - name: Terraform Init
-      run: terraform init
-      shell: bash
-      working-directory: ${{ inputs.terraform-dir }}
-      env:
-        TF_LOG: INFO
 
     - name: Debug TF Plan Existence
       shell: bash
