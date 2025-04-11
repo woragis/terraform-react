@@ -123,9 +123,21 @@ runs:
           echo "logging_bucket_exists=true" >> $GITHUB_OUTPUT
         fi
 
+    - name: Set Bucket Existence Flags
+      id: bucket_flags
+      shell: bash
+      run: |
+        echo "static_bucket_exists=${{ env.static_bucket_exists }}" >> $GITHUB_OUTPUT
+        echo "logging_bucket_exists=${{ env.logging_bucket_exists }}" >> $GITHUB_OUTPUT
+
+    - name: Debug TF Plan Existence
+      shell: bash
+      run: ls -la
+      working-directory: ${{ inputs.terraform-dir }}
+
     - name: Terraform Plan
       id: plan
-      if: steps.bucket_check.outputs.static_bucket_exists == 'false' || steps.bucket_check.outputs.logging_bucket_exists == 'false'
+      if: steps.bucket_flags.outputs.static_bucket_exists == 'false' || steps.bucket_flags.outputs.logging_bucket_exists == 'false'
       run: |
         terraform plan \
           -var "project_name=${{ inputs.project-name }}" \
