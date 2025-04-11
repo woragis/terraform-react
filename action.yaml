@@ -82,6 +82,7 @@ runs:
       id: apply
       continue-on-error: true
       run: |
+        # if terraform apply tfplan; then
         if terraform apply -auto-approve tfplan; then
           echo "Terraform apply succeeded"
           echo "apply_success=true" >> $GITHUB_ENV
@@ -136,7 +137,7 @@ runs:
 outputs:
   s3_bucket_name:
     description: 'The name of the S3 bucket created or used'
-    value: ${{ steps.outputs.s3_bucket_name }}
+    value: ${{ steps.outputs.outputs.s3_bucket_name }}
   website_endpoint:
     description: 'S3 static website endpoint'
-    value: ${{ steps.outputs.website_endpoint }}
+    value: ${{ steps.outputs.outputs.website_endpoint }}
