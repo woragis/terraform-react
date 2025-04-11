@@ -69,21 +69,3 @@ resource "aws_s3_bucket_website_configuration" "site" {
     key = "index.html"
   }
 }
-
-# S3 Bucket for Logs
-resource "aws_s3_bucket" "logging_bucket" {
-  bucket = local.logging_bucket_name
-
-  tags = merge(local.common_tags, {
-    Name = local.logging_bucket_name
-  })
-}
-
-resource "aws_s3_bucket_public_access_block" "logging_block" {
-  bucket = aws_s3_bucket.logging_bucket.id
-
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}

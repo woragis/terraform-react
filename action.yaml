@@ -25,11 +25,6 @@ inputs:
     required: false
     default: 'null'
 
-  logging-bucket-name:
-    description: 'Custom logging bucket name'
-    required: false
-    default: 'null'
-
 runs:
   using: 'composite'
   steps:
@@ -55,7 +50,7 @@ runs:
           "dev"|"develop") echo "environment=dev" >> $GITHUB_ENV ;;
           "prod"|"main") echo "environment=prod" >> $GITHUB_ENV ;;
           "staging") echo "environment=staging" >> $GITHUB_ENV ;;
-          *) echo "environment=dev" >> $GITHUB_ENV ;;  # Default to dev for other branches
+          *) echo "environment=dev" >> $GITHUB_ENV ;;
         esac
       shell: bash
 
@@ -66,70 +61,6 @@ runs:
       env:
         TF_LOG: INFO
 
-    # - name: Import Existing Buckets
-    #   shell: bash
-    #   env:
-    #     TF_LOG: INFO
-    #     TF_VAR_project_name: ${{ inputs.project-name }}
-    #     environment: ${{ env.environment }}
-    #   run: |
-    #     echo "Attempting to import existing S3 buckets..."
-    #     if terraform import "module.s3.aws_s3_bucket.static_site" "${TF_VAR_project_name}-${environment}-s3" 2>import_static_error.log; then
-    #       echo "Imported static site bucket successfully"
-    #     else
-    #       cat import_static_error.log
-    #       echo "Static site bucket does not exist or import failed (this is expected if it doesn't exist)"
-    #     fi
-
-    #     if terraform import "module.s3.aws_s3_bucket.logging_bucket" "${TF_VAR_project_name}-${environment}-logs" 2>import_logging_error.log; then
-    #       echo "Imported logging bucket successfully"
-    #     else
-    #       cat import_logging_error.log
-    #       echo "Logging bucket does not exist or import failed (this is expected if it doesn't exist)"
-    #     fi
-    #   working-directory: ${{ inputs.terraform-dir }}
-    #   continue-on-error: true
-
-    # - name: Debug State
-    #   shell: bash
-    #   working-directory: ${{ inputs.terraform-dir }}
-    #   run: |
-    #     echo "Current Terraform state:"
-    #     terraform state list || echo "No resources in state"
-
-    # - name: Check If Buckets Exist
-    #   id: bucket_check
-    #   shell: bash
-    #   working-directory: ${{ inputs.terraform-dir }}
-    #   env:
-    #     AWS_REGION: ${{ inputs.aws-region }}
-    #     PROJECT_NAME: ${{ inputs.project-name }}
-    #     ENVIRONMENT: ${{ env.environment }}
-    #   run: |
-    #     STATIC_BUCKET="${PROJECT_NAME}-${ENVIRONMENT}-s3"
-    #     LOGGING_BUCKET="${PROJECT_NAME}-${ENVIRONMENT}-logs"
-
-    #     echo "Checking static site bucket: $STATIC_BUCKET"
-    #     if aws s3 ls "s3://$STATIC_BUCKET" --region "$AWS_REGION" 2>&1 | grep -q 'NoSuchBucket'; then
-    #       echo "static_bucket_exists=false" >> $GITHUB_OUTPUT
-    #     else
-    #       echo "static_bucket_exists=true" >> $GITHUB_OUTPUT
-    #     fi
-
-    #     echo "Checking log bucket: $LOGGING_BUCKET"
-    #     if aws s3 ls "s3://$LOGGING_BUCKET" --region "$AWS_REGION" 2>&1 | grep -q 'NoSuchBucket'; then
-    #       echo "logging_bucket_exists=false" >> $GITHUB_OUTPUT
-    #     else
-    #       echo "logging_bucket_exists=true" >> $GITHUB_OUTPUT
-    #     fi
-
-    # - name: Set Bucket Existence Flags
-    #   id: bucket_flags
-    #   shell: bash
-    #   run: |
-    #     echo "static_bucket_exists=${{ env.static_bucket_exists }}" >> $GITHUB_OUTPUT
-    #     echo "logging_bucket_exists=${{ env.logging_bucket_exists }}" >> $GITHUB_OUTPUT
-
     - name: Debug TF Plan Existence
       shell: bash
       run: ls -la
@@ -137,21 +68,18 @@ runs:
 
     - name: Terraform Plan
       id: plan
-      # if: steps.bucket_flags.outputs.static_bucket_exists == 'false' || steps.bucket_flags.outputs.logging_bucket_exists == 'false'
       run: |
         terraform plan \
           -var "project_name=${{ inputs.project-name }}" \
           -var "aws_region=${{ inputs.aws-region }}" \
           -var "environment=${{ env.environment }}" \
           -var "s3_bucket_name=${{ inputs.s3-bucket-name }}" \
-          -var "logging_bucket_name=${{ inputs.logging-bucket-name }}" \
           -out=tfplan
       shell: bash
       working-directory: ${{ inputs.terraform-dir }}
 
     - name: Terraform Apply
       id: apply
-      # if: env.static_bucket_exists == 'false' || env.logging_bucket_exists == 'false' || !env.static_bucket_exists || !env.logging_bucket_exists
       continue-on-error: true
       run: |
         if terraform apply -auto-approve tfplan; then
@@ -173,8 +101,7 @@ runs:
           -var "project_name=${{ inputs.project-name }}" \
           -var "aws_region=${{ inputs.aws-region }}" \
           -var "environment=${{ env.environment }}" \
-          -var "s3_bucket_name=${{ inputs.s3-bucket-name }}" \
-          -var "logging_bucket_name=${{ inputs.logging-bucket-name }}"
+          -var "s3_bucket_name=${{ inputs.s3-bucket-name }}"
       shell: bash
       working-directory: ${{ inputs.terraform-dir }}
 
@@ -182,7 +109,6 @@ runs:
       if: env.apply_success == 'true'
       id: outputs
       run: |
-        # Check and set s3_bucket_name
         S3_BUCKET_NAME=$(terraform output -raw s3_bucket_name 2>/dev/null) || S3_BUCKET_NAME=""
         if [ -n "$S3_BUCKET_NAME" ]; then
           echo "s3_bucket_name=$S3_BUCKET_NAME" >> $GITHUB_OUTPUT
@@ -191,16 +117,6 @@ runs:
           echo "Warning: s3_bucket_name output not found in Terraform" >&2
         fi
 
-        # Check and set logging_bucket_name
-        LOGGING_BUCKET_NAME=$(terraform output -raw logging_bucket_name 2>/dev/null) || LOGGING_BUCKET_NAME=""
-        if [ -n "$LOGGING_BUCKET_NAME" ]; then
-          echo "logging_bucket_name=$LOGGING_BUCKET_NAME" >> $GITHUB_OUTPUT
-        else
-          echo "logging_bucket_name=" >> $GITHUB_OUTPUT
-          echo "Warning: logging_bucket_name output not found in Terraform" >&2
-        fi
-
-        # Check and set website_endpoint
         WEBSITE_ENDPOINT=$(terraform output -raw website_endpoint 2>/dev/null) || WEBSITE_ENDPOINT=""
         if [ -n "$WEBSITE_ENDPOINT" ]; then
           echo "website_endpoint=$WEBSITE_ENDPOINT" >> $GITHUB_OUTPUT
@@ -208,7 +124,6 @@ runs:
           echo "website_endpoint=" >> $GITHUB_OUTPUT
           echo "Warning: website_endpoint output not found in Terraform" >&2
         fi
-
       shell: bash
       working-directory: ${{ inputs.terraform-dir }}
 
@@ -222,9 +137,6 @@ outputs:
   s3_bucket_name:
     description: 'The name of the S3 bucket created or used'
     value: ${{ steps.outputs.s3_bucket_name }}
-  logging_bucket_name:
-    description: 'The name of the S3 bucket created for logging'
-    value: ${{ steps.outputs.logging_bucket_name }}
   website_endpoint:
     description: 'S3 static website endpoint'
     value: ${{ steps.outputs.website_endpoint }}

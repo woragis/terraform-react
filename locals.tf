@@ -6,5 +6,4 @@ locals {
   }
 
   s3_bucket_name       = "${var.project_name}-${var.environment}-s3"
-  logging_bucket_name  = "${var.project_name}-${var.environment}-logs"
 }
