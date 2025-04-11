@@ -98,55 +98,34 @@ runs:
         terraform state list || echo "No resources in state"
 
     - name: Check If Buckets Exist
+      id: bucket_check
       shell: bash
       working-directory: ${{ inputs.terraform-dir }}
       env:
         AWS_REGION: ${{ inputs.aws-region }}
-        PROJECT_NAME: ${{ inputs.project-name }} # Use direct input to ensure it’s set
-        ENVIRONMENT: ${{ env.environment }} # Use the environment set by Determine Environment from Branch
+        PROJECT_NAME: ${{ inputs.project-name }}
+        ENVIRONMENT: ${{ env.environment }}
       run: |
-        echo "Checking if buckets exist in region: $AWS_REGION"
-
-        # Validate inputs
-        if [ -z "$PROJECT_NAME" ] || [ -z "$ENVIRONMENT" ]; then
-          echo "Error: PROJECT_NAME or ENVIRONMENT is not set. Please check inputs."
-          exit 1
-        fi
-
-        # Check static site bucket
         STATIC_BUCKET="${PROJECT_NAME}-${ENVIRONMENT}-s3"
+        LOGGING_BUCKET="${PROJECT_NAME}-${ENVIRONMENT}-logs"
+
         echo "Checking static site bucket: $STATIC_BUCKET"
         if aws s3 ls "s3://$STATIC_BUCKET" --region "$AWS_REGION" 2>&1 | grep -q 'NoSuchBucket'; then
-          echo "Static site bucket does not exist"
-          echo "static_bucket_exists=false" >> $GITHUB_ENV
+          echo "static_bucket_exists=false" >> $GITHUB_OUTPUT
         else
-          OUTPUT=$(aws s3 ls "s3://$STATIC_BUCKET" --region "$AWS_REGION" 2>&1)
-          echo "Static site bucket check output: $OUTPUT"
-          echo "Static site bucket already exists"
-          echo "static_bucket_exists=true" >> $GITHUB_ENV
+          echo "static_bucket_exists=true" >> $GITHUB_OUTPUT
         fi
 
-        # Check log bucket
-        LOGGING_BUCKET="${PROJECT_NAME}-${ENVIRONMENT}-logs"
         echo "Checking log bucket: $LOGGING_BUCKET"
         if aws s3 ls "s3://$LOGGING_BUCKET" --region "$AWS_REGION" 2>&1 | grep -q 'NoSuchBucket'; then
-          echo "Logging bucket does not exist"
-          echo "logging_bucket_exists=false" >> $GITHUB_ENV
+          echo "logging_bucket_exists=false" >> $GITHUB_OUTPUT
         else
-          OUTPUT=$(aws s3 ls "s3://$LOGGING_BUCKET" --region "$AWS_REGION" 2>&1)
-          echo "Log bucket check output: $OUTPUT"
-          echo "Logging bucket already exists"
-          echo "logging_bucket_exists=true" >> $GITHUB_ENV
+          echo "logging_bucket_exists=true" >> $GITHUB_OUTPUT
         fi
-
-        # Debug: Print the final environment variables
-        echo "Final bucket existence flags:"
-        echo "static_bucket_exists: ${static_bucket_exists:-undefined}"
-        echo "logging_bucket_exists: ${logging_bucket_exists:-undefined}"
 
     - name: Terraform Plan
       id: plan
-      if: env.static_bucket_exists == 'false' || env.logging_bucket_exists == 'false' || !env.static_bucket_exists || !env.logging_bucket_exists
+      if: steps.bucket_check.outputs.static_bucket_exists == 'false' || steps.bucket_check.outputs.logging_bucket_exists == 'false'
       run: |
         terraform plan \
           -var "project_name=${{ inputs.project-name }}" \
