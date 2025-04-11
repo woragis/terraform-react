@@ -5,5 +5,5 @@ locals {
     ManagedBy   = "Terraform"
   }
 
-  s3_bucket_name       = "${var.project_name}-${var.environment}-s3"
+  s3_bucket_name       = var.s3_bucket_name
 }
