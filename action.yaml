@@ -78,14 +78,14 @@ runs:
           echo "Imported static site bucket successfully"
         else
           cat import_static_error.log
-          echo "Static site bucket does not exist or import failed (this is expected if it doesn’t exist)"
+          echo "Static site bucket does not exist or import failed (this is expected if it doesn't exist)"
         fi
 
         if terraform import "module.s3.aws_s3_bucket.logging_bucket" "${TF_VAR_project_name}-${environment}-logs" 2>import_logging_error.log; then
           echo "Imported logging bucket successfully"
         else
           cat import_logging_error.log
-          echo "Logging bucket does not exist or import failed (this is expected if it doesn’t exist)"
+          echo "Logging bucket does not exist or import failed (this is expected if it doesn't exist)"
         fi
       working-directory: ${{ inputs.terraform-dir }}
       continue-on-error: true
@@ -102,28 +102,38 @@ runs:
       working-directory: ${{ inputs.terraform-dir }}
       env:
         AWS_REGION: ${{ inputs.aws-region }}
+        PROJECT_NAME: ${{ inputs.project-name }} # Use direct input to ensure it’s set
+        ENVIRONMENT: ${{ env.environment }} # Use the environment set by Determine Environment from Branch
       run: |
         echo "Checking if buckets exist in region: $AWS_REGION"
 
+        # Validate inputs
+        if [ -z "$PROJECT_NAME" ] || [ -z "$ENVIRONMENT" ]; then
+          echo "Error: PROJECT_NAME or ENVIRONMENT is not set. Please check inputs."
+          exit 1
+        fi
+
         # Check static site bucket
-        echo "Checking static site bucket: ${TF_VAR_project_name}-${environment}-s3"
-        if aws s3 ls "${TF_VAR_project_name}-${environment}-s3" --region "$AWS_REGION" 2>&1 | grep -q 'NoSuchBucket'; then
+        STATIC_BUCKET="${PROJECT_NAME}-${ENVIRONMENT}-s3"
+        echo "Checking static site bucket: $STATIC_BUCKET"
+        if aws s3 ls "s3://$STATIC_BUCKET" --region "$AWS_REGION" 2>&1 | grep -q 'NoSuchBucket'; then
           echo "Static site bucket does not exist"
           echo "static_bucket_exists=false" >> $GITHUB_ENV
         else
-          OUTPUT=$(aws s3 ls "${TF_VAR_project_name}-${environment}-s3" --region "$AWS_REGION" 2>&1)
+          OUTPUT=$(aws s3 ls "s3://$STATIC_BUCKET" --region "$AWS_REGION" 2>&1)
           echo "Static site bucket check output: $OUTPUT"
           echo "Static site bucket already exists"
           echo "static_bucket_exists=true" >> $GITHUB_ENV
         fi
 
         # Check log bucket
-        echo "Checking log bucket: ${TF_VAR_project_name}-${environment}-logs"
-        if aws s3 ls "${TF_VAR_project_name}-${environment}-logs" --region "$AWS_REGION" 2>&1 | grep -q 'NoSuchBucket'; then
+        LOGGING_BUCKET="${PROJECT_NAME}-${ENVIRONMENT}-logs"
+        echo "Checking log bucket: $LOGGING_BUCKET"
+        if aws s3 ls "s3://$LOGGING_BUCKET" --region "$AWS_REGION" 2>&1 | grep -q 'NoSuchBucket'; then
           echo "Logging bucket does not exist"
           echo "logging_bucket_exists=false" >> $GITHUB_ENV
         else
-          OUTPUT=$(aws s3 ls "${TF_VAR_project_name}-${environment}-logs" --region "$AWS_REGION" 2>&1)
+          OUTPUT=$(aws s3 ls "s3://$LOGGING_BUCKET" --region "$AWS_REGION" 2>&1)
           echo "Log bucket check output: $OUTPUT"
           echo "Logging bucket already exists"
           echo "logging_bucket_exists=true" >> $GITHUB_ENV
@@ -136,7 +146,7 @@ runs:
 
     - name: Terraform Plan
       id: plan
-      if: env.static_bucket_exists == 'false' || env.logging_bucket_exists == 'false' || !env.static_bucket_exists || !env.logging_bucket_exists # Run if either bucket doesn’t exist or variables are undefined
+      if: env.static_bucket_exists == 'false' || env.logging_bucket_exists == 'false' || !env.static_bucket_exists || !env.logging_bucket_exists
       run: |
         terraform plan \
           -var "project_name=${{ inputs.project-name }}" \
@@ -148,26 +158,19 @@ runs:
       shell: bash
       working-directory: ${{ inputs.terraform-dir }}
 
-    - name: Terraform Apply with Retry
+    - name: Terraform Apply
       id: apply
-      if: env.static_bucket_exists == 'false' || env.logging_bucket_exists == 'false' || !env.static_bucket_exists || !env.logging_bucket_exists # Run if either bucket doesn’t exist or variables are undefined
+      if: env.static_bucket_exists == 'false' || env.logging_bucket_exists == 'false' || !env.static_bucket_exists || !env.logging_bucket_exists
       continue-on-error: true
       run: |
-        for attempt in {1..5}; do
-          if terraform apply -auto-approve tfplan; then
-            echo "Terraform apply succeeded on attempt $attempt"
-            echo "apply_success=true" >> $GITHUB_ENV
-            break
-          else
-            echo "Attempt $attempt failed. Retrying in 120 seconds..."
-            sleep 120
-            if [ $attempt -eq 5 ]; then
-              echo "Terraform apply failed after 5 attempts"
-              echo "apply_success=false" >> $GITHUB_ENV
-              exit 1
-            fi
-          fi
-        done
+        if terraform apply -auto-approve tfplan; then
+          echo "Terraform apply succeeded"
+          echo "apply_success=true" >> $GITHUB_ENV
+        else
+          echo "Terraform apply failed"
+          echo "apply_success=false" >> $GITHUB_ENV
+          exit 1
+        fi
       shell: bash
       working-directory: ${{ inputs.terraform-dir }}
 
