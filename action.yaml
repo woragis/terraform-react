@@ -64,24 +64,29 @@ runs:
         esac
       shell: bash
 
-    - name: Check if S3 bucket exists
-      shell: bash
-      id: s3_check
-      run: |
-        echo "Checking if bucket '$s3_bucket_name' exists..."
-        if aws s3api head-bucket --bucket "$s3_bucket_name" 2>/dev/null; then
-          echo "exists=true" >> $GITHUB_OUTPUT
-        else
-          echo "exists=false" >> $GITHUB_OUTPUT
-        fi
+    # - name: Check if S3 bucket exists
+    #   shell: bash
+    #   id: s3_check
+    #   run: |
+    #     echo "Checking if bucket '$s3_bucket_name' exists..."
+    #     if aws s3api head-bucket --bucket "$s3_bucket_name" 2>/dev/null; then
+    #       echo "exists=true" >> $GITHUB_OUTPUT
+    #     else
+    #       echo "exists=false" >> $GITHUB_OUTPUT
+    #     fi
+    #   working-directory: ./terraform/s3
 
-    - name: Import existing S3 bucket if necessary
-      if: steps.s3_check.outputs.exists == 'true'
+    - name: Terraform Init
       shell: bash
-      run: |
-        terraform init
-        terraform import aws_s3_bucket.main "$s3_bucket_name"
+      run: terraform init
       working-directory: ./terraform/s3
+
+    # - name: Import existing S3 bucket if necessary
+    #   if: steps.s3_check.outputs.exists == 'true'
+    #   shell: bash
+    #   run: |
+    #     terraform import aws_s3_bucket.main "$s3_bucket_name"
+    #   working-directory: ./terraform/s3
 
     - name: Debug TF Plan Existence
       shell: bash
