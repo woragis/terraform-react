@@ -64,17 +64,16 @@ runs:
       shell: bash
       working-directory: ${{ inputs.terraform-dir }}
       env:
-        TF_LOG: DEBUG # Changed to DEBUG for more detailed logging
+        TF_LOG: INFO
 
     - name: Import Existing Buckets
       shell: bash
       env:
-        TF_LOG: DEBUG
+        TF_LOG: INFO
         TF_VAR_project_name: ${{ inputs.project-name }}
         environment: ${{ env.environment }}
       run: |
         echo "Attempting to import existing S3 buckets..."
-        # Import static site bucket
         if terraform import "module.s3.aws_s3_bucket.static_site" "${TF_VAR_project_name}-${environment}-s3" 2>import_static_error.log; then
           echo "Imported static site bucket successfully"
         else
@@ -82,16 +81,14 @@ runs:
           echo "Static site bucket does not exist or import failed (this is expected if it doesn’t exist)"
         fi
 
-        # Import log bucket (if it exists)
         if terraform import "module.s3.aws_s3_bucket.logging_bucket" "${TF_VAR_project_name}-${environment}-logs" 2>import_logging_error.log; then
           echo "Imported logging bucket successfully"
         else
           cat import_logging_error.log
           echo "Logging bucket does not exist or import failed (this is expected if it doesn’t exist)"
-          # No error exit here; continue even if the bucket doesn’t exist
         fi
       working-directory: ${{ inputs.terraform-dir }}
-      continue-on-error: true # Ensure this step doesn’t fail the workflow
+      continue-on-error: true
 
     - name: Debug State
       shell: bash
@@ -103,28 +100,43 @@ runs:
     - name: Check If Buckets Exist
       shell: bash
       working-directory: ${{ inputs.terraform-dir }}
+      env:
+        AWS_REGION: ${{ inputs.aws-region }}
       run: |
+        echo "Checking if buckets exist in region: $AWS_REGION"
+
         # Check static site bucket
-        if aws s3 ls "${TF_VAR_project_name}-${environment}-s3" --region ${{ inputs.aws-region }} 2>&1 | grep -q 'NoSuchBucket'; then
+        echo "Checking static site bucket: ${TF_VAR_project_name}-${environment}-s3"
+        if aws s3 ls "${TF_VAR_project_name}-${environment}-s3" --region "$AWS_REGION" 2>&1 | grep -q 'NoSuchBucket'; then
           echo "Static site bucket does not exist"
           echo "static_bucket_exists=false" >> $GITHUB_ENV
         else
+          OUTPUT=$(aws s3 ls "${TF_VAR_project_name}-${environment}-s3" --region "$AWS_REGION" 2>&1)
+          echo "Static site bucket check output: $OUTPUT"
           echo "Static site bucket already exists"
           echo "static_bucket_exists=true" >> $GITHUB_ENV
         fi
 
         # Check log bucket
-        if aws s3 ls "${TF_VAR_project_name}-${environment}-logs" --region ${{ inputs.aws-region }} 2>&1 | grep -q 'NoSuchBucket'; then
+        echo "Checking log bucket: ${TF_VAR_project_name}-${environment}-logs"
+        if aws s3 ls "${TF_VAR_project_name}-${environment}-logs" --region "$AWS_REGION" 2>&1 | grep -q 'NoSuchBucket'; then
           echo "Logging bucket does not exist"
           echo "logging_bucket_exists=false" >> $GITHUB_ENV
         else
+          OUTPUT=$(aws s3 ls "${TF_VAR_project_name}-${environment}-logs" --region "$AWS_REGION" 2>&1)
+          echo "Log bucket check output: $OUTPUT"
           echo "Logging bucket already exists"
           echo "logging_bucket_exists=true" >> $GITHUB_ENV
         fi
 
+        # Debug: Print the final environment variables
+        echo "Final bucket existence flags:"
+        echo "static_bucket_exists: ${static_bucket_exists:-undefined}"
+        echo "logging_bucket_exists: ${logging_bucket_exists:-undefined}"
+
     - name: Terraform Plan
       id: plan
-      if: env.static_bucket_exists == 'false' || env.logging_bucket_exists == 'false' # Only plan if at least one bucket needs to be created
+      if: env.static_bucket_exists == 'false' || env.logging_bucket_exists == 'false' || !env.static_bucket_exists || !env.logging_bucket_exists # Run if either bucket doesn’t exist or variables are undefined
       run: |
         terraform plan \
           -var "project_name=${{ inputs.project-name }}" \
@@ -138,7 +150,7 @@ runs:
 
     - name: Terraform Apply with Retry
       id: apply
-      if: env.static_bucket_exists == 'false' || env.logging_bucket_exists == 'false' # Only apply if at least one bucket needs to be created
+      if: env.static_bucket_exists == 'false' || env.logging_bucket_exists == 'false' || !env.static_bucket_exists || !env.logging_bucket_exists # Run if either bucket doesn’t exist or variables are undefined
       continue-on-error: true
       run: |
         for attempt in {1..5}; do
