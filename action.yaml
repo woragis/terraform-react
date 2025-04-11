@@ -74,6 +74,7 @@ runs:
         environment: ${{ env.environment }}
       run: |
         echo "Attempting to import existing S3 buckets..."
+        # Import static site bucket
         if terraform import "module.s3.aws_s3_bucket.static_site" "${TF_VAR_project_name}-${environment}-s3" 2>import_static_error.log; then
           echo "Imported static site bucket successfully"
         else
@@ -81,13 +82,16 @@ runs:
           echo "Static site bucket does not exist or import failed (this is expected if it doesn’t exist)"
         fi
 
+        # Import log bucket (if it exists)
         if terraform import "module.s3.aws_s3_bucket.logging_bucket" "${TF_VAR_project_name}-${environment}-logs" 2>import_logging_error.log; then
           echo "Imported logging bucket successfully"
         else
           cat import_logging_error.log
           echo "Logging bucket does not exist or import failed (this is expected if it doesn’t exist)"
+          # No error exit here; continue even if the bucket doesn’t exist
         fi
       working-directory: ${{ inputs.terraform-dir }}
+      continue-on-error: true # Ensure this step doesn’t fail the workflow
 
     - name: Debug State
       shell: bash
@@ -100,6 +104,7 @@ runs:
       shell: bash
       working-directory: ${{ inputs.terraform-dir }}
       run: |
+        # Check static site bucket
         if aws s3 ls "${TF_VAR_project_name}-${environment}-s3" --region ${{ inputs.aws-region }} 2>&1 | grep -q 'NoSuchBucket'; then
           echo "Static site bucket does not exist"
           echo "static_bucket_exists=false" >> $GITHUB_ENV
@@ -108,6 +113,7 @@ runs:
           echo "static_bucket_exists=true" >> $GITHUB_ENV
         fi
 
+        # Check log bucket
         if aws s3 ls "${TF_VAR_project_name}-${environment}-logs" --region ${{ inputs.aws-region }} 2>&1 | grep -q 'NoSuchBucket'; then
           echo "Logging bucket does not exist"
           echo "logging_bucket_exists=false" >> $GITHUB_ENV
