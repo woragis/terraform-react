@@ -176,14 +176,32 @@ runs:
       if: env.apply_success == 'true'
       id: outputs
       run: |
-        echo "s3_bucket_name=$(terraform output -raw s3_bucket_name)" >> $GITHUB_ENV
-        echo "s3_bucket_name=$(terraform output -raw s3_bucket_name)" >> $GITHUB_OUTPUT
+        # Check and set s3_bucket_name
+        S3_BUCKET_NAME=$(terraform output -raw s3_bucket_name 2>/dev/null) || S3_BUCKET_NAME=""
+        if [ -n "$S3_BUCKET_NAME" ]; then
+          echo "s3_bucket_name=$S3_BUCKET_NAME" >> $GITHUB_OUTPUT
+        else
+          echo "s3_bucket_name=" >> $GITHUB_OUTPUT
+          echo "Warning: s3_bucket_name output not found in Terraform" >&2
+        fi
 
-        echo "logging_bucket_name=$(terraform output -raw logging_bucket_name)" >> $GITHUB_ENV
-        echo "logging_bucket_name=$(terraform output -raw logging_bucket_name)" >> $GITHUB_OUTPUT
+        # Check and set logging_bucket_name
+        LOGGING_BUCKET_NAME=$(terraform output -raw logging_bucket_name 2>/dev/null) || LOGGING_BUCKET_NAME=""
+        if [ -n "$LOGGING_BUCKET_NAME" ]; then
+          echo "logging_bucket_name=$LOGGING_BUCKET_NAME" >> $GITHUB_OUTPUT
+        else
+          echo "logging_bucket_name=" >> $GITHUB_OUTPUT
+          echo "Warning: logging_bucket_name output not found in Terraform" >&2
+        fi
 
-        echo "website_endpoint=$(terraform output -raw website_endpoint)" >> $GITHUB_ENV
-        echo "website_endpoint=$(terraform output -raw website_endpoint)" >> $GITHUB_OUTPUT
+        # Check and set website_endpoint
+        WEBSITE_ENDPOINT=$(terraform output -raw website_endpoint 2>/dev/null) || WEBSITE_ENDPOINT=""
+        if [ -n "$WEBSITE_ENDPOINT" ]; then
+          echo "website_endpoint=$WEBSITE_ENDPOINT" >> $GITHUB_OUTPUT
+        else
+          echo "website_endpoint=" >> $GITHUB_OUTPUT
+          echo "Warning: website_endpoint output not found in Terraform" >&2
+        fi
 
       shell: bash
       working-directory: ${{ inputs.terraform-dir }}
