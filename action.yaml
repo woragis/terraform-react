@@ -43,6 +43,16 @@ runs:
         aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ inputs.aws-region }}
 
+    - name: Set S3 bucket name
+      id: bucket_name
+      shell: bash
+      run: |
+        if [ "${{ inputs.s3-bucket-name }}" != "null" ]; then
+          echo "s3_bucket_name=${{ inputs.s3-bucket-name }}" >> $GITHUB_ENV
+        else
+          echo "s3_bucket_name=${{ inputs.project-name }}-${{ inputs.environment }}-s3" >> $GITHUB_ENV
+        fi
+
     - name: Determine Environment from Branch
       id: env
       run: |
@@ -53,6 +63,24 @@ runs:
           *) echo "environment=dev" >> $GITHUB_ENV ;;
         esac
       shell: bash
+
+    - name: Check if S3 bucket exists
+      shell: bash
+      id: s3_check
+      run: |
+        echo "Checking if bucket '$s3_bucket_name' exists..."
+        if aws s3api head-bucket --bucket "$s3_bucket_name" 2>/dev/null; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Import existing S3 bucket if necessary
+      if: steps.s3_check.outputs.exists == 'true'
+      shell: bash
+      run: |
+        terraform import aws_s3_bucket.main "$s3_bucket_name"
+      working-directory: ./terraform/s3
 
     - name: Terraform Init
       run: terraform init
