@@ -112,19 +112,19 @@ runs:
       if: steps.apply.outputs.apply_success == 'true'
       id: get_outputs
       run: |
-        S3_BUCKET_NAME=$(terraform output -raw s3_bucket_name 2>/dev/null) || S3_BUCKET_NAME=""
+        S3_BUCKET_NAME=$(terraform output -raw s3_bucket_name 2>/dev/null || echo "")
         if [ -n "$S3_BUCKET_NAME" ]; then
-          echo "s3_bucket_name=$S3_BUCKET_NAME" >> $GITHUB_OUTPUT
+          echo "s3_bucket_name=$S3_BUCKET_NAME" >> "$GITHUB_OUTPUT"
         else
-          echo "s3_bucket_name=" >> $GITHUB_OUTPUT
+          echo "s3_bucket_name=" >> "$GITHUB_OUTPUT"
           echo "Warning: s3_bucket_name output not found in Terraform" >&2
         fi
 
-        WEBSITE_ENDPOINT=$(terraform output -raw website_endpoint 2>/dev/null) || WEBSITE_ENDPOINT=""
+        WEBSITE_ENDPOINT=$(terraform output -raw website_endpoint 2>/dev/null || echo "")
         if [ -n "$WEBSITE_ENDPOINT" ]; then
-          echo "website_endpoint=$WEBSITE_ENDPOINT" >> $GITHUB_OUTPUT
+          echo "website_endpoint=$WEBSITE_ENDPOINT" >> "$GITHUB_OUTPUT"
         else
-          echo "website_endpoint=" >> $GITHUB_OUTPUT
+          echo "website_endpoint=" >> "$GITHUB_OUTPUT"
           echo "Warning: website_endpoint output not found in Terraform" >&2
         fi
       shell: bash
