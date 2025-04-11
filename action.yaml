@@ -86,16 +86,18 @@ runs:
         if terraform apply -auto-approve tfplan; then
           echo "Terraform apply succeeded"
           echo "apply_success=true" >> $GITHUB_ENV
+          echo "apply_success=true" >> $GITHUB_OUTPUT
         else
           echo "Terraform apply failed"
           echo "apply_success=false" >> $GITHUB_ENV
+          echo "apply_success=false" >> $GITHUB_OUTPUT
           exit 1
         fi
       shell: bash
       working-directory: ${{ inputs.terraform-dir }}
 
     - name: Terraform Destroy on Failure
-      if: env.apply_success == 'false'
+      if: steps.apply.outputs.apply_success == 'true'
       run: |
         echo "Cleaning up resources with terraform destroy..."
         terraform destroy -auto-approve \
@@ -107,7 +109,7 @@ runs:
       working-directory: ${{ inputs.terraform-dir }}
 
     - name: Get Terraform Outputs
-      if: env.apply_success == 'true'
+      if: steps.apply.outputs.apply_success == 'true'
       id: get_outputs
       run: |
         S3_BUCKET_NAME=$(terraform output -raw s3_bucket_name 2>/dev/null) || S3_BUCKET_NAME=""
