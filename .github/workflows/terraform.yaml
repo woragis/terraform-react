@@ -31,14 +31,6 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      # Step to fetch the zone ID
-      - name: 🔍 Get Zone ID from Route 53
-        id: get_zone_id
-        run: |
-          # Retrieve the Hosted Zone ID for the domain
-          zone_id=$(aws route53 list-hosted-zones --query "HostedZones[?Name=='example.com.'].Id" --output text)
-          echo "zone_id=$zone_id" >> $GITHUB_ENV
-
       - name: 🧱 Terraform Init
         run: terraform init
 
@@ -48,11 +40,11 @@ jobs:
       - name: 📐 Terraform Plan
         run: |
           terraform plan -out=tfplan \
-          -var="zone_id=Z04161241RRPNBQR90WRW" \
-          -var="domain_name=brasilia.lizardti.com" \
-          -var="bucket_name=brasilia.lizardti.com" \
-          -var="aws_region=us-east-1" \
-          -var='tags={"Name"="BrasiliaProjectCat", "ManagedBy"="Terraform", "Project"="ReactApp"}'
+          -var="zone_id=${{ secrets.ZONE_ID }}" \
+          -var="domain_name=${{ secrets.DOMAIN_NAME }}" \
+          -var="bucket_name=${{ secrets.BUCKET_NAME }}" \
+          -var="aws_region=${{ secrets.AWS_REGION }}" \
+          -var='tags={"Name"="${{ secrets.PROJECT_NAME }}", "ManagedBy"="Terraform", "Project"="ReactApp"}'
 
       - name: 🚀 Terraform Apply
         run: terraform apply -auto-approve tfplan
