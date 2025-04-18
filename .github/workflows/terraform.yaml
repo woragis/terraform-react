@@ -44,7 +44,7 @@ jobs:
           -var="domain_name=${{ secrets.DOMAIN_NAME }}" \
           -var="bucket_name=${{ secrets.BUCKET_NAME }}" \
           -var="aws_region=${{ secrets.AWS_REGION }}" \
-          -var='tags={"Name"="${{ secrets.PROJECT_NAME }}", "ManagedBy"="Terraform", "Project"="ReactApp"}'
+          -var='tags={"Name"="${{ secrets.PROJECT_NAME }}", "ManagedBy"="Terraform", "Project"="${{ secrets.PROJECT_TYPE }}"}'
 
       - name: 🚀 Terraform Apply
         run: terraform apply -auto-approve tfplan
@@ -53,3 +53,5 @@ jobs:
       - name: 💥 Terraform Destroy (if any previous step fails)
         if: failure() # Only run if previous steps fail
         run: terraform destroy -auto-approve
+
+      # Depending on secrets.PROJECT_TYPE it runs either react, svelte or vanilla html js deploy
