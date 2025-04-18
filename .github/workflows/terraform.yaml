@@ -1,0 +1,63 @@
+name: Terraform Deploy to AWS
+
+on: workflow_dispatch
+
+jobs:
+  terraform:
+    name: Deploy React Infra
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    defaults:
+      run:
+        working-directory: terraform
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: ⚙️ Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.7
+
+      - name: ☁️ Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      # Step to fetch the zone ID
+      - name: 🔍 Get Zone ID from Route 53
+        id: get_zone_id
+        run: |
+          # Retrieve the Hosted Zone ID for the domain
+          zone_id=$(aws route53 list-hosted-zones --query "HostedZones[?Name=='example.com.'].Id" --output text)
+          echo "zone_id=$zone_id" >> $GITHUB_ENV
+
+      - name: 🧱 Terraform Init
+        run: terraform init
+
+      - name: 🔍 Terraform Validate
+        run: terraform validate
+
+      - name: 📐 Terraform Plan
+        run: |
+          terraform plan -out=tfplan \
+          -var="zone_id=Z04161241RRPNBQR90WRW" \
+          -var="domain_name=brasilia.lizardti.com" \
+          -var="bucket_name=brasilia.lizardti.com" \
+          -var="aws_region=us-east-1" \
+          -var='tags={"Name"="BrasiliaProjectCat", "ManagedBy"="Terraform", "Project"="ReactApp"}'
+
+      - name: 🚀 Terraform Apply
+        run: terraform apply -auto-approve tfplan
+
+      # Cleanup step if any step fails
+      - name: 💥 Terraform Destroy (if any previous step fails)
+        if: failure() # Only run if previous steps fail
+        run: terraform destroy -auto-approve

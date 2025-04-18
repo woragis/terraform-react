@@ -1,25 +1,23 @@
 variable "aws_region" {
-  description = "AWS region to deploy to"
-  type        = string
-  default     = "us-east-1"
+  default = "us-west-2"
 }
 
-variable "project_name" {
-  description = "Name of the project"
+variable "domain_name" {
+  description = "Domain for the React app"
   type        = string
 }
 
-variable "s3_bucket_name" {
-  description = "Name of the s3 bucket"
-  type = string
+variable "bucket_name" {
+  description = "S3 bucket name for the React build"
+  type        = string
 }
 
-variable "environment" {
+variable "zone_id" {
+  description = "Hosted zone ID for Route 53"
   type        = string
-  description = "Deployment environment (e.g., 'dev', 'prod', 'staging')"
-  default     = "dev"
-  validation {
-    condition     = contains(["dev", "prod", "staging"], lower(var.environment))
-    error_message = "The environment must be one of: 'dev', 'prod', or 'staging'."
-  }
+}
+
+variable "tags" {
+  type    = map(string)
+  default = {}
 }

@@ -1,0 +1,41 @@
+name: Update React Build
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy-react:
+    name: Push React to S3 Bucket
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: ⚙️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: 📦 Install Dependencies
+        run: npm install
+
+      - name: 🛠️ Build React App
+        run: npm run build
+
+      - name: ☁️ Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: 📤 Upload React Build to S3
+        run: |
+          aws s3 sync dist/ s3://brasilia.lizardti.com --delete
