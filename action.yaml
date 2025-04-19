@@ -1,8 +1,12 @@
-name: 'Terraform Static App Deploy To AWS'
-description: 'Deploy a static app using Terraform and S3'
+name: 'Terraform React Deploy To AWS'
+description: 'Deploy a React app using Terraform and S3'
 
 inputs:
   project-name:
+    description: 'The project name used for naming resources and tags'
+    required: true
+
+  project-type:
     description: 'The project name used for naming resources and tags'
     required: true
 
@@ -15,15 +19,23 @@ inputs:
     required: false
     default: 'us-east-1'
 
-  environment:
-    description: 'Deployment environment (e.g., dev, prod, staging)'
-    required: false
-    default: 'dev'
+  domain:
+    description: 'Domain name to check for an existing hosted zone'
+    required: true
+
+  subdomain:
+    description: 'Subdomain of the app'
+    required: true
 
   s3-bucket-name:
     description: 'Custom S3 bucket name'
     required: false
     default: 'null'
+
+  environment:
+    description: 'Deployment environment (e.g., dev, prod, staging)'
+    required: false
+    default: 'dev'
 
 runs:
   using: 'composite'
@@ -64,10 +76,23 @@ runs:
           *) echo "environment=dev" >> $GITHUB_ENV ;;
         esac
 
+    - name: Check if Hosted Zone Exists
+      id: hosted_zone_check
+      shell: bash
+      run: |
+        ZONE_ID=$(aws route53 list-hosted-zones-by-name --dns-name ${{ inputs.domain }} --query "HostedZones[0].Id" --output text)
+        if [ "$ZONE_ID" != "None" ]; then
+          echo "Hosted Zone exists. Setting create_zone to false"
+          echo "create_zone=false" >> $GITHUB_ENV
+        else
+          echo "Hosted Zone does not exist. Setting create_zone to true"
+          echo "create_zone=true" >> $GITHUB_ENV
+        fi
+
     - name: Terraform Init
+      working-directory: ${{ inputs.terraform-dir }}
       shell: bash
       run: terraform init
-      working-directory: ${{ inputs.terraform-dir }}
 
     - name: Terraform Plan
       id: plan
@@ -76,9 +101,12 @@ runs:
       run: |
         terraform plan \
           -var "project_name=${{ inputs.project-name }}" \
+          -var "project_type=${{ inputs.project-type }}" \
           -var "aws_region=${{ inputs.aws-region }}" \
-          -var "environment=${{ env.environment }}" \
+          -var "domain=${{ inputs.domain }}" \
+          -var "subdomain=${{ inputs.subdomain }}" \
           -var "s3_bucket_name=${{ inputs.s3-bucket-name }}" \
+          -var "create_zone=${{ env.create_zone }}" \
           -out=tfplan
 
     - name: Terraform Apply
@@ -108,7 +136,8 @@ runs:
           -var "project_name=${{ inputs.project-name }}" \
           -var "aws_region=${{ inputs.aws-region }}" \
           -var "environment=${{ env.environment }}" \
-          -var "s3_bucket_name=${{ inputs.s3-bucket-name }}"
+          -var "s3_bucket_name=${{ inputs.s3-bucket-name }}" \
+          -var "create_zone=${{ env.create_zone }}"
 
     - name: Get Terraform Outputs
       if: steps.apply.outputs.apply_success == 'true'
@@ -134,7 +163,7 @@ runs:
 
     - name: Notify on Timeout or Failure
       if: failure() || cancelled()
-      shell: sh
+      shell: bash
       run: |
         echo "Deployment failed or timed out. Check AWS status and logs."
 

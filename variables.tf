@@ -1,4 +1,15 @@
+variable "project_name" {
+  description = "Name of the App"
+  type        = string
+}
+
+variable "project_type" {
+  description = "Type of the App"
+  type        = string
+}
+
 variable "aws_region" {
+  type    = string
   default = "us-east-1"
 }
 
