@@ -1,5 +1,5 @@
-name: 'Terraform React Deploy To AWS'
-description: 'Deploy a React app using Terraform and S3'
+name: 'Terraform Static App Deploy To AWS'
+description: 'Deploy a static app using Terraform and S3'
 
 inputs:
   project-name:
@@ -55,6 +55,7 @@ runs:
 
     - name: Determine Environment from Branch
       id: env
+      shell: bash
       run: |
         case ${GITHUB_REF_NAME} in
           "dev"|"develop") echo "environment=dev" >> $GITHUB_ENV ;;
@@ -62,39 +63,16 @@ runs:
           "staging") echo "environment=staging" >> $GITHUB_ENV ;;
           *) echo "environment=dev" >> $GITHUB_ENV ;;
         esac
-      shell: bash
-
-    # - name: Check if S3 bucket exists
-    #   shell: bash
-    #   id: s3_check
-    #   run: |
-    #     echo "Checking if bucket '$s3_bucket_name' exists..."
-    #     if aws s3api head-bucket --bucket "$s3_bucket_name" 2>/dev/null; then
-    #       echo "exists=true" >> $GITHUB_OUTPUT
-    #     else
-    #       echo "exists=false" >> $GITHUB_OUTPUT
-    #     fi
-    #   working-directory: ./terraform/s3
 
     - name: Terraform Init
       shell: bash
       run: terraform init
-      working-directory: ./terraform/s3
-
-    # - name: Import existing S3 bucket if necessary
-    #   if: steps.s3_check.outputs.exists == 'true'
-    #   shell: bash
-    #   run: |
-    #     terraform import aws_s3_bucket.main "$s3_bucket_name"
-    #   working-directory: ./terraform/s3
-
-    - name: Debug TF Plan Existence
-      shell: bash
-      run: ls -la
       working-directory: ${{ inputs.terraform-dir }}
 
     - name: Terraform Plan
       id: plan
+      working-directory: ${{ inputs.terraform-dir }}
+      shell: bash
       run: |
         terraform plan \
           -var "project_name=${{ inputs.project-name }}" \
@@ -102,14 +80,13 @@ runs:
           -var "environment=${{ env.environment }}" \
           -var "s3_bucket_name=${{ inputs.s3-bucket-name }}" \
           -out=tfplan
-      shell: bash
-      working-directory: ${{ inputs.terraform-dir }}
 
     - name: Terraform Apply
       id: apply
       continue-on-error: true
+      working-directory: ${{ inputs.terraform-dir }}
+      shell: bash
       run: |
-        # if terraform apply tfplan; then
         if terraform apply -auto-approve tfplan; then
           echo "Terraform apply succeeded"
           echo "apply_success=true" >> $GITHUB_ENV
@@ -120,11 +97,11 @@ runs:
           echo "apply_success=false" >> $GITHUB_OUTPUT
           exit 1
         fi
-      shell: bash
-      working-directory: ${{ inputs.terraform-dir }}
 
     - name: Terraform Destroy on Failure
       if: steps.apply.outputs.apply_success == 'false'
+      working-directory: ${{ inputs.terraform-dir }}
+      shell: bash
       run: |
         echo "Cleaning up resources with terraform destroy..."
         terraform destroy -auto-approve \
@@ -132,12 +109,12 @@ runs:
           -var "aws_region=${{ inputs.aws-region }}" \
           -var "environment=${{ env.environment }}" \
           -var "s3_bucket_name=${{ inputs.s3-bucket-name }}"
-      shell: bash
-      working-directory: ${{ inputs.terraform-dir }}
 
     - name: Get Terraform Outputs
       if: steps.apply.outputs.apply_success == 'true'
       id: get_outputs
+      working-directory: ${{ inputs.terraform-dir }}
+      shell: bash
       run: |
         S3_BUCKET_NAME=$(terraform output -raw s3_bucket_name 2>/dev/null || echo "")
         if [ -n "$S3_BUCKET_NAME" ]; then
@@ -154,14 +131,12 @@ runs:
           echo "website_endpoint=" >> "$GITHUB_OUTPUT"
           echo "Warning: website_endpoint output not found in Terraform" >&2
         fi
-      shell: bash
-      working-directory: ${{ inputs.terraform-dir }}
 
     - name: Notify on Timeout or Failure
       if: failure() || cancelled()
+      shell: sh
       run: |
         echo "Deployment failed or timed out. Check AWS status and logs."
-      shell: bash
 
 outputs:
   s3_bucket_name:
