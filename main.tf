@@ -1,17 +1,17 @@
 provider "aws" {
-  region = var.aws_region
+  region = local.aws_region
 }
 
 provider "aws" {
-  alias  = "us_east_1"
+  alias  = "acm"
   region = "us-east-1"
 }
 
 # 1. S3 Bucket for Static Site
 resource "aws_s3_bucket" "react_site" {
-  bucket = var.bucket_name
+  bucket = local.bucket_name
 
-  tags = var.tags
+  tags = local.tags
 }
 
 resource "aws_s3_bucket_public_access_block" "block" {
@@ -35,7 +35,6 @@ resource "aws_s3_bucket_website_configuration" "Site" {
   }
 }
 
-# Nao tenho permissao
 resource "aws_s3_bucket_policy" "public_read" {
   bucket = aws_s3_bucket.react_site.id
 
@@ -50,13 +49,25 @@ resource "aws_s3_bucket_policy" "public_read" {
   })
 }
 
+# Zone creation
+data "aws_route53_zone" "existing" {
+  count = local.create_zone ? 0 : 1
+  name  = "${local.domain_name}."
+}
+
+resource "aws_route53_zone" "new" {
+  count = local.create_zone ? 1 : 0
+  name  = local.domain_name
+}
+
 # 2. ACM Certificate (in us-east-1)
 resource "aws_acm_certificate" "cert" {
-  provider          = aws.us_east_1
-  domain_name       = var.domain_name
+  provider          = aws.acm
+  domain_name       = var.create_zone ? local.domain_name : local.complete_route
+
   validation_method = "DNS"
 
-  tags = var.tags
+  tags = local.tags
 }
 
 # 3. Route53 Cert Validation Record
@@ -69,7 +80,7 @@ resource "aws_route53_record" "cert_validation" {
     }
   }
 
-  zone_id = var.zone_id
+  zone_id = local.zone_id
   name    = each.value.name
   type    = each.value.type
   records = [each.value.value]
@@ -78,7 +89,7 @@ resource "aws_route53_record" "cert_validation" {
 
 # 4. Certificate Validation
 resource "aws_acm_certificate_validation" "cert_validation" {
-  provider                = aws.us_east_1
+  provider                = aws.acm
   certificate_arn         = aws_acm_certificate.cert.arn
   validation_record_fqdns = [for record in aws_route53_record.cert_validation : record.fqdn]
 }
@@ -96,12 +107,10 @@ resource "aws_cloudfront_distribution" "react_cdn" {
   comment             = "React App CloudFront"
   default_root_object = "index.html"
 
-  aliases = [var.domain_name]
-
-
+  aliases = [local.domain_name]
 
   origin {
-    domain_name = "${aws_s3_bucket.react_site.bucket_regional_domain_name}"
+    domain_name = aws_s3_bucket.react_site.bucket_regional_domain_name
     origin_id   = "s3-origin"
 
     custom_origin_config {
@@ -138,13 +147,13 @@ resource "aws_cloudfront_distribution" "react_cdn" {
     }
   }
 
-  tags = var.tags
+  tags = local.tags
 }
 
 # 6. Route53 Alias Record
 resource "aws_route53_record" "cdn_alias" {
-  zone_id = var.zone_id
-  name    = var.domain_name
+  zone_id = local.zone_id
+  name    = local.complete_route
   type    = "A"
 
   alias {

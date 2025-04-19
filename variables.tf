@@ -7,14 +7,21 @@ variable "domain_name" {
   type        = string
 }
 
+variable "subdomain" {
+  description = "Subdomain for the React app"
+  type        = string
+  default     = "www"
+}
+
 variable "bucket_name" {
   description = "S3 bucket name for the React build"
   type        = string
 }
 
-variable "zone_id" {
-  description = "Hosted zone ID for Route 53"
-  type        = string
+variable "create_zone" {
+  description = "Flag to create Route 53 hosted zone"
+  type        = bool
+  default     = false
 }
 
 variable "tags" {
