@@ -101,7 +101,6 @@ runs:
           -var "project_type=${{ inputs.project-type }}" \
           -var "domain_name=${{ inputs.domain-name }}" \
           -var "aws_region=${{ inputs.aws-region }}" \
-          -var "environment=${{ env.environment }}" \
           -var "bucket_name=${{ inputs.bucket-name }}" \
           -var "create_zone=${{ inputs.create-zone }}" \
           -var='tags={"Name"="${{ inputs.project-name }}", "ManagedBy"="Terraform", "Project"="${{ inputs.project-type }}"}'
@@ -134,7 +133,6 @@ runs:
           -var "project_type=${{ inputs.project-type }}" \
           -var "domain_name=${{ inputs.domain-name }}" \
           -var "aws_region=${{ inputs.aws-region }}" \
-          -var "environment=${{ env.environment }}" \
           -var "bucket_name=${{ inputs.bucket-name }}" \
           -var "create_zone=${{ inputs.create-zone }}" \
           -var='tags={"Name"="${{ inputs.project-name }}", "ManagedBy"="Terraform", "Project"="${{ inputs.project-type }}"}'
