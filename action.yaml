@@ -19,7 +19,7 @@ inputs:
     required: false
     default: 'us-east-1'
 
-  domain:
+  domain-name:
     description: 'Domain name to check for an existing hosted zone'
     required: true
 
@@ -27,7 +27,7 @@ inputs:
     description: 'Subdomain of the app'
     required: true
 
-  s3-bucket-name:
+  bucket-name:
     description: 'Custom S3 bucket name'
     required: false
     default: 'null'
@@ -36,6 +36,16 @@ inputs:
     description: 'Deployment environment (e.g., dev, prod, staging)'
     required: false
     default: 'dev'
+
+  create-zone:
+    description: 'Create a new Route 53 hosted zone'
+    required: false
+    default: 'false'
+
+  tags:
+    description: 'Tags to apply to the resources'
+    required: false
+    default: 'null'
 
 runs:
   using: 'composite'
@@ -99,15 +109,15 @@ runs:
       working-directory: ${{ inputs.terraform-dir }}
       shell: bash
       run: |
-        terraform plan \
+        terraform plan -out=tfplan \
           -var "project_name=${{ inputs.project-name }}" \
           -var "project_type=${{ inputs.project-type }}" \
+          -var "domain_name=${{ inputs.domain-name }}" \
           -var "aws_region=${{ inputs.aws-region }}" \
-          -var "domain=${{ inputs.domain }}" \
-          -var "subdomain=${{ inputs.subdomain }}" \
-          -var "s3_bucket_name=${{ inputs.s3-bucket-name }}" \
-          -var "create_zone=${{ env.create_zone }}" \
-          -out=tfplan
+          -var "environment=${{ env.environment }}" \
+          -var "bucket_name=${{ inputs.bucket-name }}" \
+          -var "create_zone=${{ inputs.create-zone }}" \
+          -var='tags={"Name"="${{ inputs.project-name }}", "ManagedBy"="Terraform", "Project"="${{ inputs.project-type }}"}'
 
     - name: Terraform Apply
       id: apply
@@ -134,10 +144,13 @@ runs:
         echo "Cleaning up resources with terraform destroy..."
         terraform destroy -auto-approve \
           -var "project_name=${{ inputs.project-name }}" \
+          -var "project_type=${{ inputs.project-type }}" \
+          -var "domain_name=${{ inputs.domain-name }}" \
           -var "aws_region=${{ inputs.aws-region }}" \
           -var "environment=${{ env.environment }}" \
-          -var "s3_bucket_name=${{ inputs.s3-bucket-name }}" \
-          -var "create_zone=${{ env.create_zone }}"
+          -var "bucket_name=${{ inputs.bucket-name }}" \
+          -var "create_zone=${{ inputs.create-zone }}" \
+          -var='tags={"Name"="${{ inputs.project-name }}", "ManagedBy"="Terraform", "Project"="${{ inputs.project-type }}"}'
 
     - name: Get Terraform Outputs
       if: steps.apply.outputs.apply_success == 'true'
