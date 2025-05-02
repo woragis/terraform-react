@@ -110,7 +110,7 @@ resource "aws_cloudfront_distribution" "react_cdn" {
   aliases = [local.domain_name]
 
   origin {
-    domain_name = aws_s3_bucket.react_site.bucket_regional_domain_name
+    domain_name = aws_s3_bucket.react_site.website_endpoint
     origin_id   = "s3-origin"
 
     custom_origin_config {
