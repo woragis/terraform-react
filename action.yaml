@@ -65,39 +65,26 @@ runs:
         aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ inputs.aws-region }}
 
-    - name: Set S3 bucket name
-      id: bucket_name
-      shell: bash
-      run: |
-        if [ "${{ inputs.s3-bucket-name }}" != "null" ]; then
-          echo "s3_bucket_name=${{ inputs.s3-bucket-name }}" >> $GITHUB_ENV
-        else
-          echo "s3_bucket_name=${{ inputs.project-name }}-${{ inputs.environment }}-s3" >> $GITHUB_ENV
-        fi
+    # - name: Set S3 bucket name
+    #   id: bucket_name
+    #   shell: bash
+    #   run: |
+    #     if [ "${{ inputs.s3-bucket-name }}" != "null" ]; then
+    #       echo "s3_bucket_name=${{ inputs.s3-bucket-name }}" >> $GITHUB_ENV
+    #     else
+    #       echo "s3_bucket_name=${{ inputs.project-name }}-${{ inputs.environment }}-s3" >> $GITHUB_ENV
+    #     fi
 
-    - name: Determine Environment from Branch
-      id: env
-      shell: bash
-      run: |
-        case ${GITHUB_REF_NAME} in
-          "dev"|"develop") echo "environment=dev" >> $GITHUB_ENV ;;
-          "prod"|"main") echo "environment=prod" >> $GITHUB_ENV ;;
-          "staging") echo "environment=staging" >> $GITHUB_ENV ;;
-          *) echo "environment=dev" >> $GITHUB_ENV ;;
-        esac
-
-    - name: Check if Hosted Zone Exists
-      id: hosted_zone_check
-      shell: bash
-      run: |
-        ZONE_ID=$(aws route53 list-hosted-zones-by-name --dns-name ${{ inputs.domain }} --query "HostedZones[0].Id" --output text)
-        if [ "$ZONE_ID" != "None" ]; then
-          echo "Hosted Zone exists. Setting create_zone to false"
-          echo "create_zone=false" >> $GITHUB_ENV
-        else
-          echo "Hosted Zone does not exist. Setting create_zone to true"
-          echo "create_zone=true" >> $GITHUB_ENV
-        fi
+    # - name: Determine Environment from Branch
+    #   id: env
+    #   shell: bash
+    #   run: |
+    #     case ${GITHUB_REF_NAME} in
+    #       "dev"|"develop") echo "environment=dev" >> $GITHUB_ENV ;;
+    #       "prod"|"main") echo "environment=prod" >> $GITHUB_ENV ;;
+    #       "staging") echo "environment=staging" >> $GITHUB_ENV ;;
+    #       *) echo "environment=dev" >> $GITHUB_ENV ;;
+    #     esac
 
     - name: Terraform Init
       working-directory: ${{ inputs.terraform-dir }}
