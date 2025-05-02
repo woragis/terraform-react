@@ -35,19 +35,19 @@ resource "aws_s3_bucket_website_configuration" "Site" {
   }
 }
 
-resource "aws_s3_bucket_policy" "public_read" {
-  bucket = aws_s3_bucket.react_site.id
+# resource "aws_s3_bucket_policy" "public_read" {
+#   bucket = aws_s3_bucket.react_site.id
 
-  policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [{
-      Effect = "Allow",
-      Principal = "*",
-      Action = "s3:GetObject",
-      Resource = "${aws_s3_bucket.react_site.arn}/*"
-    }]
-  })
-}
+#   policy = jsonencode({
+#     Version = "2012-10-17",
+#     Statement = [{
+#       Effect = "Allow",
+#       Principal = "*",
+#       Action = "s3:GetObject",
+#       Resource = "${aws_s3_bucket.react_site.arn}/*"
+#     }]
+#   })
+# }
 
 # Zone creation
 data "aws_route53_zone" "existing" {
@@ -63,7 +63,7 @@ resource "aws_route53_zone" "new" {
 # 2. ACM Certificate (in us-east-1)
 resource "aws_acm_certificate" "cert" {
   provider          = aws.acm
-  domain_name       = var.create_zone ? local.domain_name : local.complete_route
+  domain_name       = local.complete_route
 
   validation_method = "DNS"
 
@@ -107,7 +107,7 @@ resource "aws_cloudfront_distribution" "react_cdn" {
   comment             = "React App CloudFront"
   default_root_object = "index.html"
 
-  aliases = [local.domain_name]
+  aliases = [local.complete_route]
 
   origin {
     domain_name = aws_s3_bucket_website_configuration.Site.website_endpoint
