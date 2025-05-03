@@ -99,6 +99,7 @@ runs:
         terraform plan -out=tfplan \
           -var "project_name=${{ inputs.project-name }}" \
           -var "project_type=${{ inputs.project-type }}" \
+          -var "subdomain=${{ inputs.subdomain }}" \
           -var "domain_name=${{ inputs.domain-name }}" \
           -var "aws_region=${{ inputs.aws-region }}" \
           -var "bucket_name=${{ inputs.bucket-name }}" \
