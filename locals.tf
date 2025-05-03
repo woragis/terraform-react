@@ -4,7 +4,7 @@ locals {
   aws_region   = var.aws_region
   domain_name  = var.domain_name
   subdomain    = var.subdomain
-  create_zone  = var.create_zone
+  create_zone  = false
   bucket_name  = var.bucket_name
   tags         = var.tags
 
