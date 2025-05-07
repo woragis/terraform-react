@@ -35,20 +35,20 @@ resource "aws_s3_bucket_website_configuration" "Site" {
   }
 }
 
-resource "aws_s3_bucket_policy" "public_read" {
-  depends_on = [ aws_s3_bucket.react_site, aws_s3_bucket_public_access_block.block ]
-  bucket = aws_s3_bucket.react_site.id
+# resource "aws_s3_bucket_policy" "public_read" {
+#   depends_on = [ aws_s3_bucket.react_site, aws_s3_bucket_public_access_block.block ]
+#   bucket = aws_s3_bucket.react_site.id
 
-  policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [{
-      Effect = "Allow",
-      Principal = "*",
-      Action = "s3:GetObject",
-      Resource = "${aws_s3_bucket.react_site.arn}/*"
-    }]
-  })
-}
+#   policy = jsonencode({
+#     Version = "2012-10-17",
+#     Statement = [{
+#       Effect = "Allow",
+#       Principal = "*",
+#       Action = "s3:GetObject",
+#       Resource = "${aws_s3_bucket.react_site.arn}/*"
+#     }]
+#   })
+# }
 
 # Zone creation
 data "aws_route53_zone" "existing" {
